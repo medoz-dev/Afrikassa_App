@@ -25,6 +25,7 @@ const ProduitEditor: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log("Boissons chargées dans ProduitEditor:", boissons);
     setEditableBoissons([...boissons]);
   }, [boissons]);
 
@@ -48,7 +49,18 @@ const ProduitEditor: React.FC = () => {
 
   const deleteBoisson = (id: number) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette boisson?")) {
-      setEditableBoissons(prev => prev.filter(boisson => boisson.id !== id));
+      const updatedBoissons = editableBoissons.filter(boisson => boisson.id !== id);
+      setEditableBoissons(updatedBoissons);
+      
+      // Sauvegarder immédiatement après la suppression
+      setTimeout(() => {
+        localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
+        updateBoissons(updatedBoissons);
+        toast({
+          title: "Boisson supprimée",
+          description: "La boisson a été supprimée avec succès.",
+        });
+      }, 100);
     }
   };
 
@@ -76,7 +88,14 @@ const ProduitEditor: React.FC = () => {
       specialUnit: newBoisson.special ? Number(newBoisson.specialUnit) : undefined
     };
 
-    setEditableBoissons(prev => [...prev, boissonToAdd]);
+    const updatedBoissons = [...editableBoissons, boissonToAdd];
+    setEditableBoissons(updatedBoissons);
+    
+    // Sauvegarder immédiatement après l'ajout
+    setTimeout(() => {
+      localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
+      updateBoissons(updatedBoissons);
+    }, 100);
     
     // Réinitialiser le formulaire
     setNewBoisson({
@@ -99,6 +118,7 @@ const ProduitEditor: React.FC = () => {
 
   const saveChanges = () => {
     try {
+      console.log("Sauvegarde des produits:", editableBoissons);
       localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
       updateBoissons(editableBoissons);
       toast({

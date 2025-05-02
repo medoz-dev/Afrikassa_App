@@ -25,6 +25,7 @@ const PrixBoissonsEditor: React.FC = () => {
 
   useEffect(() => {
     // Récupérer les boissons du contexte
+    console.log("Boissons chargées dans PrixBoissonsEditor:", boissons);
     setEditableBoissons([...boissons]);
   }, [boissons]);
 
@@ -59,6 +60,7 @@ const PrixBoissonsEditor: React.FC = () => {
 
   const saveChanges = () => {
     try {
+      console.log("Sauvegarde des boissons:", editableBoissons);
       localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
       updateBoissons(editableBoissons);
       toast({

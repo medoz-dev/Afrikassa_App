@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AdminAuth from '@/components/admin/AdminAuth';
 import PrixBoissonsEditor from '@/components/admin/PrixBoissonsEditor';
@@ -9,15 +9,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("prix");
+
+  // Vérifier si l'utilisateur a déjà été authentifié
+  useEffect(() => {
+    const authStatus = localStorage.getItem('admin_authenticated');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Sauvegarder l'état d'authentification
+  const handleAuthenticated = () => {
+    localStorage.setItem('admin_authenticated', 'true');
+    setIsAuthenticated(true);
+  };
+
+  // Gérer le changement d'onglet
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold mb-6">Administration</h1>
 
       {!isAuthenticated ? (
-        <AdminAuth onAuthenticated={() => setIsAuthenticated(true)} />
+        <AdminAuth onAuthenticated={handleAuthenticated} />
       ) : (
-        <Tabs defaultValue="prix">
+        <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="prix">Prix des Boissons</TabsTrigger>
             <TabsTrigger value="produits">Gestion des Produits</TabsTrigger>

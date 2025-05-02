@@ -42,11 +42,13 @@ const HistoriquePointsEditor: React.FC = () => {
       const resultsData = localStorage.getItem('resultsData');
       const allSavedResults: ResultData[] = [];
       
-      // Récupérer l'historique complet (pourrait être stocké différemment)
+      // Récupérer l'historique complet 
       const historicalData = localStorage.getItem('historicalResults');
       
       if (historicalData) {
-        setHistorique(JSON.parse(historicalData));
+        const parsedData = JSON.parse(historicalData);
+        console.log("Données d'historique chargées:", parsedData);
+        setHistorique(parsedData);
       } else if (resultsData) {
         // Si pas d'historique complet mais un résultat existe
         allSavedResults.push(JSON.parse(resultsData));
@@ -66,6 +68,7 @@ const HistoriquePointsEditor: React.FC = () => {
 
   const saveHistoriqueToLocalStorage = () => {
     try {
+      console.log("Sauvegarde de l'historique:", historique);
       localStorage.setItem('historicalResults', JSON.stringify(historique));
       toast({
         title: "Succès",
@@ -82,17 +85,23 @@ const HistoriquePointsEditor: React.FC = () => {
   };
 
   const deletePoint = (date: string) => {
-    setHistorique(prev => prev.filter(point => point.date !== date));
-    toast({
-      title: "Point supprimé",
-      description: "Le point a été retiré de l'historique.",
-    });
+    const updatedHistorique = historique.filter(point => point.date !== date);
+    setHistorique(updatedHistorique);
+    
+    // Sauvegarder immédiatement après la suppression
+    setTimeout(() => {
+      localStorage.setItem('historicalResults', JSON.stringify(updatedHistorique));
+      toast({
+        title: "Point supprimé",
+        description: "Le point a été retiré de l'historique.",
+      });
+    }, 100);
   };
 
   return (
     <div className="space-y-4">
       <div className="mb-4">
-        <Button onClick={saveHistoriqueToLocalStorage} className="w-full">
+        <Button onClick={saveHistoriqueToLocalStorage} className="w-full bg-green-600 hover:bg-green-700">
           Enregistrer les modifications
         </Button>
       </div>
