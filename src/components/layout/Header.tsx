@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Clipboard, ShoppingCart, Wallet, BarChart3 } from 'lucide-react';
+import { Home, Clipboard, ShoppingCart, Wallet, BarChart3, Settings } from 'lucide-react';
 
 const Header: React.FC = () => {
   return (
@@ -19,6 +19,7 @@ const Header: React.FC = () => {
             <NavLink to="/ventes" icon={<ShoppingCart size={20} />} label="Ventes" />
             <NavLink to="/caisse" icon={<Wallet size={20} />} label="Caisse" />
             <NavLink to="/rapports" icon={<BarChart3 size={20} />} label="Rapports" />
+            <NavLink to="/admin" icon={<Settings size={20} />} label="Admin" />
           </nav>
         </div>
       </div>

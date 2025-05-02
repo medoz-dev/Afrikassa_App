@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from '@/components/ui/use-toast';
-import { boissons } from '@/data/boissons';
+import { boissons as defaultBoissons } from '@/data/boissons';
 
 interface Boisson {
   id: number;
@@ -105,9 +104,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [especeGerant, setEspeceGerant] = useState<number>(0);
   const [resultatFinal, setResultatFinal] = useState<number>(0);
+  const [boissons, setBoissons] = useState(defaultBoissons);
 
   // Initialiser les données des boissons
   useEffect(() => {
+    // Charger les boissons depuis localStorage (si disponible)
+    const storedBoissons = localStorage.getItem('boissonsData');
+    if (storedBoissons) {
+      setBoissons(JSON.parse(storedBoissons));
+    } else {
+      setBoissons(defaultBoissons);
+    }
+
     // Initialiser les items de stock
     const initialStockItems = boissons.map((boisson) => ({
       boissonId: boisson.id,
@@ -350,6 +358,26 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       localStorage.setItem('previousStock', JSON.stringify({
         total: stockTotal
       }));
+      
+      // Ajouter à l'historique des points
+      const historicalData = localStorage.getItem('historicalResults');
+      let history = [];
+      
+      if (historicalData) {
+        history = JSON.parse(historicalData);
+        // Vérifier si une entrée pour cette date existe déjà
+        const existingIndex = history.findIndex((item: any) => item.date === resultsData.date);
+        
+        if (existingIndex >= 0) {
+          history[existingIndex] = resultsData;
+        } else {
+          history.push(resultsData);
+        }
+      } else {
+        history = [resultsData];
+      }
+      
+      localStorage.setItem('historicalResults', JSON.stringify(history));
       
       toast({
         title: "Succès",

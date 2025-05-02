@@ -8,6 +8,7 @@ import Stock from '@/pages/Stock';
 import Ventes from '@/pages/Ventes';
 import Caisse from '@/pages/Caisse';
 import Rapports from '@/pages/Rapports';
+import Admin from '@/pages/Admin';
 
 const Index: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ const Index: React.FC = () => {
           <Route path="/ventes" element={<Ventes />} />
           <Route path="/caisse" element={<Caisse />} />
           <Route path="/rapports" element={<Rapports />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </Layout>
     </AppProvider>
