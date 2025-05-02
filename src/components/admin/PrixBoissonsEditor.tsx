@@ -19,18 +19,13 @@ interface BoissonEditableProps {
 }
 
 const PrixBoissonsEditor: React.FC = () => {
-  const { boissons } = useAppContext();
+  const { boissons, updateBoissons } = useAppContext();
   const [editableBoissons, setEditableBoissons] = useState<BoissonEditableProps[]>([]);
   const [isEditing, setIsEditing] = useState<{ [key: number]: boolean }>({});
 
   useEffect(() => {
-    // Récupérer les boissons du localStorage ou du contexte
-    const storedBoissons = localStorage.getItem('boissonsData');
-    if (storedBoissons) {
-      setEditableBoissons(JSON.parse(storedBoissons));
-    } else {
-      setEditableBoissons([...boissons]);
-    }
+    // Récupérer les boissons du contexte
+    setEditableBoissons([...boissons]);
   }, [boissons]);
 
   const handlePrixChange = (id: number, newPrix: string) => {
@@ -65,6 +60,7 @@ const PrixBoissonsEditor: React.FC = () => {
   const saveChanges = () => {
     try {
       localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
+      updateBoissons(editableBoissons);
       toast({
         title: "Succès",
         description: "Les prix des boissons ont été mis à jour avec succès.",
@@ -84,7 +80,7 @@ const PrixBoissonsEditor: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="mb-4">
-        <Button onClick={saveChanges} className="w-full">
+        <Button onClick={saveChanges} className="w-full bg-green-600 hover:bg-green-700">
           <Check className="mr-2" size={16} />
           Enregistrer tous les changements
         </Button>

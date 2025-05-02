@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { boissons as defaultBoissons } from '@/data/boissons';
@@ -36,6 +37,7 @@ interface Depense {
 interface AppContextType {
   // Boissons
   boissons: Boisson[];
+  updateBoissons: (newBoissons: Boisson[]) => void;
   
   // Stock
   stockItems: StockItem[];
@@ -104,7 +106,29 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [especeGerant, setEspeceGerant] = useState<number>(0);
   const [resultatFinal, setResultatFinal] = useState<number>(0);
-  const [boissons, setBoissons] = useState(defaultBoissons);
+  const [boissons, setBoissons] = useState<Boisson[]>(defaultBoissons);
+
+  // Fonction pour mettre à jour les boissons
+  const updateBoissons = (newBoissons: Boisson[]) => {
+    setBoissons(newBoissons);
+    
+    // Réinitialiser les items de stock et d'arrivage avec les nouveaux IDs
+    const initialStockItems = newBoissons.map((boisson) => ({
+      boissonId: boisson.id,
+      quantite: 0,
+      valeur: 0,
+    }));
+    setStockItems(initialStockItems);
+
+    // Initialiser les items d'arrivage
+    const initialArrivageItems = newBoissons.map((boisson) => ({
+      boissonId: boisson.id,
+      quantite: 0,
+      typeTrous: Array.isArray(boisson.trous) ? boisson.trous[0] : boisson.trous,
+      valeur: 0,
+    }));
+    setArrivageItems(initialArrivageItems);
+  };
 
   // Initialiser les données des boissons
   useEffect(() => {
@@ -395,6 +419,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const value: AppContextType = {
     boissons,
+    updateBoissons,
     
     // Stock
     stockItems,
