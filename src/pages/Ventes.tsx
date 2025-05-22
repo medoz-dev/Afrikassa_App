@@ -3,7 +3,8 @@ import React from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import DashboardCard from '@/components/ui/dashboard-card';
-import { TrendingUp, CreditCard, DollarSign, Coins } from 'lucide-react';
+import { TrendingUp, CreditCard, Coins } from 'lucide-react';
+import HistoriqueVentes from '@/components/ventes/HistoriqueVentes';
 
 const Ventes: React.FC = () => {
   const { 
@@ -36,17 +37,7 @@ const Ventes: React.FC = () => {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Historique des Ventes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Cette fonctionnalité sera disponible dans une prochaine mise à jour.</p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Dans une future version, vous pourrez consulter ici l'historique détaillé des ventes, filtrer par dates, et effectuer des analyses.
-          </p>
-        </CardContent>
-      </Card>
+      <HistoriqueVentes />
     </div>
   );
 };

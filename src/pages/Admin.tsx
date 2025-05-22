@@ -6,6 +6,7 @@ import PrixBoissonsEditor from '@/components/admin/PrixBoissonsEditor';
 import HistoriquePointsEditor from '@/components/admin/HistoriquePointsEditor';
 import ProduitEditor from '@/components/admin/ProduitEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import HistoriqueVentes from '@/components/ventes/HistoriqueVentes';
 
 const Admin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -73,6 +74,15 @@ const Admin: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <HistoriquePointsEditor />
+              </CardContent>
+            </Card>
+            
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Historique des Ventes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <HistoriqueVentes />
               </CardContent>
             </Card>
           </TabsContent>
