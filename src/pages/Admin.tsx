@@ -5,8 +5,10 @@ import AdminAuth from '@/components/admin/AdminAuth';
 import PrixBoissonsEditor from '@/components/admin/PrixBoissonsEditor';
 import HistoriquePointsEditor from '@/components/admin/HistoriquePointsEditor';
 import ProduitEditor from '@/components/admin/ProduitEditor';
+import AdminChangeHistory from '@/components/admin/AdminChangeHistory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HistoriqueVentes from '@/components/ventes/HistoriqueVentes';
+import { ClipboardList, Settings, History } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -40,9 +42,22 @@ const Admin: React.FC = () => {
       ) : (
         <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
           <TabsList className="mb-4">
-            <TabsTrigger value="prix">Prix des Boissons</TabsTrigger>
-            <TabsTrigger value="produits">Gestion des Produits</TabsTrigger>
-            <TabsTrigger value="historique">Historique</TabsTrigger>
+            <TabsTrigger value="prix">
+              <Settings size={16} className="mr-2" />
+              Prix des Boissons
+            </TabsTrigger>
+            <TabsTrigger value="produits">
+              <ClipboardList size={16} className="mr-2" />
+              Gestion des Produits
+            </TabsTrigger>
+            <TabsTrigger value="historique">
+              <History size={16} className="mr-2" />
+              Historique
+            </TabsTrigger>
+            <TabsTrigger value="modifications">
+              <History size={16} className="mr-2" />
+              Historique des Modifications
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="prix">
@@ -83,6 +98,17 @@ const Admin: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <HistoriqueVentes />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="modifications">
+            <Card>
+              <CardHeader>
+                <CardTitle>Historique des Modifications Administratives</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AdminChangeHistory />
               </CardContent>
             </Card>
           </TabsContent>

@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Info, Trash } from 'lucide-react';
+import { trackAdminChange } from '@/utils/adminHistoryUtils';
 
 interface ResultData {
   date: string;
@@ -70,6 +71,10 @@ const HistoriquePointsEditor: React.FC = () => {
     try {
       console.log("Sauvegarde de l'historique:", historique);
       localStorage.setItem('historicalResults', JSON.stringify(historique));
+      
+      // Enregistrer la modification dans l'historique des changements
+      trackAdminChange('Historique des Points', 'Mise à jour', 'Mise à jour de l\'historique des points');
+      
       toast({
         title: "Succès",
         description: "Historique des points mis à jour avec succès.",
@@ -85,12 +90,24 @@ const HistoriquePointsEditor: React.FC = () => {
   };
 
   const deletePoint = (date: string) => {
+    const pointToDelete = historique.find(point => point.date === date);
     const updatedHistorique = historique.filter(point => point.date !== date);
     setHistorique(updatedHistorique);
     
     // Sauvegarder immédiatement après la suppression
     setTimeout(() => {
       localStorage.setItem('historicalResults', JSON.stringify(updatedHistorique));
+      
+      // Enregistrer la modification dans l'historique des changements
+      if (pointToDelete) {
+        const formattedDate = new Date(pointToDelete.date).toLocaleDateString();
+        trackAdminChange(
+          'Historique des Points', 
+          'Suppression', 
+          `Suppression du point du ${formattedDate}`
+        );
+      }
+      
       toast({
         title: "Point supprimé",
         description: "Le point a été retiré de l'historique.",

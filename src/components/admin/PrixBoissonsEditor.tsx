@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
 import { Check, Pencil } from 'lucide-react';
+import { trackAdminChange } from '@/utils/adminHistoryUtils';
 
 interface BoissonEditableProps {
   id: number;
@@ -63,6 +64,19 @@ const PrixBoissonsEditor: React.FC = () => {
       console.log("Sauvegarde des boissons:", editableBoissons);
       localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
       updateBoissons(editableBoissons);
+      
+      // Enregistrer la modification dans l'historique
+      const modifiedBoissons = editableBoissons.filter((boisson, index) => {
+        const originalBoisson = boissons[index];
+        return originalBoisson && (boisson.prix !== originalBoisson.prix || 
+               boisson.specialPrice !== originalBoisson.specialPrice);
+      });
+      
+      if (modifiedBoissons.length > 0) {
+        const details = `Modification des prix: ${modifiedBoissons.map(b => b.nom).join(', ')}`;
+        trackAdminChange('Prix Boissons', 'Modification', details);
+      }
+      
       toast({
         title: "Succès",
         description: "Les prix des boissons ont été mis à jour avec succès.",

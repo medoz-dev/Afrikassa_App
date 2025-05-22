@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { trackAdminChange } from '@/utils/adminHistoryUtils';
 
 const ProduitEditor: React.FC = () => {
   const { boissons, updateBoissons } = useAppContext();
@@ -49,6 +50,7 @@ const ProduitEditor: React.FC = () => {
 
   const deleteBoisson = (id: number) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette boisson?")) {
+      const boissonToDelete = editableBoissons.find(boisson => boisson.id === id);
       const updatedBoissons = editableBoissons.filter(boisson => boisson.id !== id);
       setEditableBoissons(updatedBoissons);
       
@@ -56,6 +58,12 @@ const ProduitEditor: React.FC = () => {
       setTimeout(() => {
         localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
         updateBoissons(updatedBoissons);
+        
+        // Enregistrer la modification dans l'historique
+        if (boissonToDelete) {
+          trackAdminChange('Produits', 'Suppression', `Suppression du produit: ${boissonToDelete.nom}`);
+        }
+        
         toast({
           title: "Boisson supprimée",
           description: "La boisson a été supprimée avec succès.",
@@ -95,6 +103,9 @@ const ProduitEditor: React.FC = () => {
     setTimeout(() => {
       localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
       updateBoissons(updatedBoissons);
+      
+      // Enregistrer la modification dans l'historique
+      trackAdminChange('Produits', 'Ajout', `Ajout du produit: ${boissonToAdd.nom}`);
     }, 100);
     
     // Réinitialiser le formulaire
@@ -118,9 +129,33 @@ const ProduitEditor: React.FC = () => {
 
   const saveChanges = () => {
     try {
+      // Identifier les produits modifiés
+      const modifiedBoissons = editableBoissons.filter((boisson, index) => {
+        const originalBoisson = boissons[index];
+        if (!originalBoisson) return false;
+        
+        // Vérifier les différences dans les propriétés
+        return (
+          boisson.nom !== originalBoisson.nom ||
+          boisson.prix !== originalBoisson.prix ||
+          boisson.type !== originalBoisson.type ||
+          boisson.trous !== originalBoisson.trous ||
+          boisson.special !== originalBoisson.special ||
+          boisson.specialPrice !== originalBoisson.specialPrice ||
+          boisson.specialUnit !== originalBoisson.specialUnit
+        );
+      });
+      
       console.log("Sauvegarde des produits:", editableBoissons);
       localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
       updateBoissons(editableBoissons);
+      
+      // Enregistrer la modification dans l'historique si des changements ont été effectués
+      if (modifiedBoissons.length > 0) {
+        const details = `Modification des produits: ${modifiedBoissons.map(b => b.nom).join(', ')}`;
+        trackAdminChange('Produits', 'Modification', details);
+      }
+      
       toast({
         title: "Succès",
         description: "Les produits ont été mis à jour avec succès.",
