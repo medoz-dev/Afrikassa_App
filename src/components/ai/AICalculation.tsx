@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Loader2, Image, FileText } from 'lucide-react';
+import { Upload, Loader2, Image, FileText, Brain } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
