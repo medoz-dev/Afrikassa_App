@@ -4,19 +4,29 @@ interface AdminChangeItem {
   section: string;
   action: string;
   details: string;
+  before?: any;
+  after?: any;
 }
 
 /**
  * Enregistre une modification administrative dans l'historique
  */
-export const trackAdminChange = (section: string, action: string, details: string) => {
+export const trackAdminChange = (
+  section: string, 
+  action: string, 
+  details: string,
+  beforeData?: any,
+  afterData?: any
+) => {
   try {
     // Créer l'élément d'historique
     const changeItem: AdminChangeItem = {
       date: new Date().toISOString(),
       section,
       action,
-      details
+      details,
+      before: beforeData,
+      after: afterData
     };
     
     // Récupérer l'historique existant

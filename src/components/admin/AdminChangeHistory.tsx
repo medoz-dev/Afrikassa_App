@@ -4,14 +4,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { History, Search, UserCog } from 'lucide-react';
+import { History, Search, Info } from 'lucide-react';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface AdminChangeItem {
   date: string;
   section: string;
   action: string;
   details: string;
+  // Champs optionnels pour stocker les données avant/après
+  before?: any;
+  after?: any;
 }
 
 const AdminChangeHistory: React.FC = () => {
@@ -20,6 +24,8 @@ const AdminChangeHistory: React.FC = () => {
   const [dateDebut, setDateDebut] = useState<string>('');
   const [dateFin, setDateFin] = useState<string>('');
   const [sectionFilter, setSectionFilter] = useState<string>('');
+  const [selectedChange, setSelectedChange] = useState<AdminChangeItem | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     // Récupérer l'historique des modifications administratives depuis localStorage
@@ -44,13 +50,17 @@ const AdminChangeHistory: React.FC = () => {
               date: new Date().toISOString(),
               section: "Prix Boissons",
               action: "Modification",
-              details: "Mise à jour des prix de plusieurs boissons"
+              details: "Mise à jour des prix de plusieurs boissons",
+              before: { "Coca Cola": 500, "Fanta": 500 },
+              after: { "Coca Cola": 600, "Fanta": 550 }
             },
             {
               date: new Date(Date.now() - 86400000).toISOString(), // Hier
               section: "Produits",
               action: "Ajout",
-              details: "Ajout d'un nouveau produit: Eau minérale"
+              details: "Ajout d'un nouveau produit: Eau minérale",
+              before: null,
+              after: { nom: "Eau minérale", prix: 300 }
             }
           ];
           
@@ -99,6 +109,54 @@ const AdminChangeHistory: React.FC = () => {
     } catch (e) {
       return dateString;
     }
+  };
+
+  const showDetails = (item: AdminChangeItem) => {
+    setSelectedChange(item);
+    setIsDialogOpen(true);
+  };
+
+  const renderDetailContent = () => {
+    if (!selectedChange) return null;
+    
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">Informations générales</h3>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="font-medium">Date:</div>
+            <div>{formatDate(selectedChange.date)}</div>
+            <div className="font-medium">Section:</div>
+            <div>{selectedChange.section}</div>
+            <div className="font-medium">Action:</div>
+            <div>{selectedChange.action}</div>
+          </div>
+        </div>
+        
+        <div>
+          <h3 className="text-lg font-medium">Description détaillée</h3>
+          <p className="mt-2">{selectedChange.details}</p>
+        </div>
+        
+        {selectedChange.before && (
+          <div>
+            <h3 className="text-lg font-medium">Avant la modification</h3>
+            <pre className="bg-slate-100 p-2 rounded-md mt-2 text-sm overflow-auto">
+              {JSON.stringify(selectedChange.before, null, 2)}
+            </pre>
+          </div>
+        )}
+        
+        {selectedChange.after && (
+          <div>
+            <h3 className="text-lg font-medium">Après la modification</h3>
+            <pre className="bg-slate-100 p-2 rounded-md mt-2 text-sm overflow-auto">
+              {JSON.stringify(selectedChange.after, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -161,6 +219,7 @@ const AdminChangeHistory: React.FC = () => {
                   <TableHead>Section</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Détails</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,6 +229,12 @@ const AdminChangeHistory: React.FC = () => {
                     <TableCell>{item.section}</TableCell>
                     <TableCell>{item.action}</TableCell>
                     <TableCell>{item.details}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => showDetails(item)}>
+                        <Info size={16} className="mr-1" />
+                        Détails
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -181,6 +246,18 @@ const AdminChangeHistory: React.FC = () => {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de la modification</DialogTitle>
+            <DialogDescription>
+              Informations détaillées sur la modification administrative
+            </DialogDescription>
+          </DialogHeader>
+          {renderDetailContent()}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

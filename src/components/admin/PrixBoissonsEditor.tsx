@@ -23,11 +23,13 @@ const PrixBoissonsEditor: React.FC = () => {
   const { boissons, updateBoissons } = useAppContext();
   const [editableBoissons, setEditableBoissons] = useState<BoissonEditableProps[]>([]);
   const [isEditing, setIsEditing] = useState<{ [key: number]: boolean }>({});
+  const [originalBoissons, setOriginalBoissons] = useState<BoissonEditableProps[]>([]);
 
   useEffect(() => {
     // Récupérer les boissons du contexte
     console.log("Boissons chargées dans PrixBoissonsEditor:", boissons);
     setEditableBoissons([...boissons]);
+    setOriginalBoissons([...boissons]);
   }, [boissons]);
 
   const handlePrixChange = (id: number, newPrix: string) => {
@@ -67,15 +69,36 @@ const PrixBoissonsEditor: React.FC = () => {
       
       // Enregistrer la modification dans l'historique
       const modifiedBoissons = editableBoissons.filter((boisson, index) => {
-        const originalBoisson = boissons[index];
+        const originalBoisson = originalBoissons[index];
         return originalBoisson && (boisson.prix !== originalBoisson.prix || 
                boisson.specialPrice !== originalBoisson.specialPrice);
       });
       
       if (modifiedBoissons.length > 0) {
+        // Créer des objets avant/après pour l'historique
+        const beforeData: Record<string, any> = {};
+        const afterData: Record<string, any> = {};
+        
+        modifiedBoissons.forEach(boisson => {
+          const original = originalBoissons.find(b => b.id === boisson.id);
+          if (original) {
+            beforeData[boisson.nom] = {
+              prix: original.prix,
+              specialPrice: original.specialPrice
+            };
+            afterData[boisson.nom] = {
+              prix: boisson.prix,
+              specialPrice: boisson.specialPrice
+            };
+          }
+        });
+        
         const details = `Modification des prix: ${modifiedBoissons.map(b => b.nom).join(', ')}`;
-        trackAdminChange('Prix Boissons', 'Modification', details);
+        trackAdminChange('Prix Boissons', 'Modification', details, beforeData, afterData);
       }
+      
+      // Mettre à jour l'original après sauvegarde
+      setOriginalBoissons([...editableBoissons]);
       
       toast({
         title: "Succès",
