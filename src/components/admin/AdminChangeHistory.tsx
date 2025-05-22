@@ -116,8 +116,67 @@ const AdminChangeHistory: React.FC = () => {
     setIsDialogOpen(true);
   };
 
+  const renderPriceChangesTable = (beforeData: any, afterData: any) => {
+    if (!beforeData || !afterData) return null;
+    
+    // Pour les modifications de prix
+    const allProductNames = new Set([
+      ...Object.keys(beforeData || {}),
+      ...Object.keys(afterData || {})
+    ]);
+    
+    return (
+      <div className="mt-4">
+        <h3 className="text-lg font-medium mb-2">Détail des changements de prix</h3>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Produit</TableHead>
+              <TableHead>Ancien prix</TableHead>
+              <TableHead>Nouveau prix</TableHead>
+              <TableHead>Différence</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from(allProductNames).map(productName => {
+              const oldPrice = beforeData && beforeData[productName] ? 
+                (typeof beforeData[productName] === 'object' ? 
+                  beforeData[productName].prix : beforeData[productName]) : '—';
+              
+              const newPrice = afterData && afterData[productName] ? 
+                (typeof afterData[productName] === 'object' ? 
+                  afterData[productName].prix : afterData[productName]) : '—';
+              
+              // Calculer la différence si les deux valeurs sont des nombres
+              let difference = '—';
+              if (typeof oldPrice === 'number' && typeof newPrice === 'number') {
+                const diff = newPrice - oldPrice;
+                difference = `${diff > 0 ? '+' : ''}${diff} FCFA`;
+              }
+              
+              return (
+                <TableRow key={productName}>
+                  <TableCell>{productName}</TableCell>
+                  <TableCell>{typeof oldPrice === 'number' ? `${oldPrice} FCFA` : oldPrice}</TableCell>
+                  <TableCell>{typeof newPrice === 'number' ? `${newPrice} FCFA` : newPrice}</TableCell>
+                  <TableCell className={difference.includes('+') ? 'text-green-500' : difference.includes('-') ? 'text-red-500' : ''}>
+                    {difference}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   const renderDetailContent = () => {
     if (!selectedChange) return null;
+    
+    // Déterminer si c'est un changement de prix ou un ajout de produit
+    const isPriceChange = selectedChange.section === "Prix Boissons" && selectedChange.action === "Modification";
+    const isProductAddition = selectedChange.section === "Produits" && selectedChange.action === "Ajout";
     
     return (
       <div className="space-y-4">
@@ -138,7 +197,48 @@ const AdminChangeHistory: React.FC = () => {
           <p className="mt-2">{selectedChange.details}</p>
         </div>
         
-        {selectedChange.before && (
+        {/* Afficher le tableau des changements de prix si c'est une modification de prix */}
+        {isPriceChange && renderPriceChangesTable(selectedChange.before, selectedChange.after)}
+        
+        {/* Pour les ajouts de produits */}
+        {isProductAddition && selectedChange.after && (
+          <div className="mt-4">
+            <h3 className="text-lg font-medium">Détail du nouveau produit</h3>
+            <div className="bg-slate-50 p-4 rounded-md mt-2">
+              {typeof selectedChange.after === 'object' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="font-medium">Nom:</div>
+                  <div>{selectedChange.after.nom}</div>
+                  <div className="font-medium">Prix:</div>
+                  <div>{selectedChange.after.prix} FCFA</div>
+                  {selectedChange.after.type && (
+                    <>
+                      <div className="font-medium">Type:</div>
+                      <div>{selectedChange.after.type}</div>
+                    </>
+                  )}
+                  {selectedChange.after.trous && (
+                    <>
+                      <div className="font-medium">Unités:</div>
+                      <div>{Array.isArray(selectedChange.after.trous) 
+                        ? selectedChange.after.trous.join(' ou ') 
+                        : selectedChange.after.trous}</div>
+                    </>
+                  )}
+                  {selectedChange.after.special && (
+                    <>
+                      <div className="font-medium">Prix spécial:</div>
+                      <div>{selectedChange.after.specialPrice} FCFA pour {selectedChange.after.specialUnit} unités</div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Données brutes (avant/après) - affichées seulement si ce n'est pas un changement de prix ou un ajout de produit */}
+        {!isPriceChange && !isProductAddition && selectedChange.before && (
           <div>
             <h3 className="text-lg font-medium">Avant la modification</h3>
             <pre className="bg-slate-100 p-2 rounded-md mt-2 text-sm overflow-auto">
@@ -147,7 +247,7 @@ const AdminChangeHistory: React.FC = () => {
           </div>
         )}
         
-        {selectedChange.after && (
+        {!isPriceChange && !isProductAddition && selectedChange.after && (
           <div>
             <h3 className="text-lg font-medium">Après la modification</h3>
             <pre className="bg-slate-100 p-2 rounded-md mt-2 text-sm overflow-auto">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,17 @@ import { toast } from '@/components/ui/use-toast';
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { trackAdminChange } from '@/utils/adminHistoryUtils';
+
+interface BoissonEditableProps {
+  id: number;
+  nom: string;
+  prix: number;
+  trous: number | number[];
+  type: string;
+  special?: boolean;
+  specialPrice?: number;
+  specialUnit?: number;
+}
 
 const ProduitEditor: React.FC = () => {
   const { boissons, updateBoissons } = useAppContext();
@@ -59,10 +69,14 @@ const ProduitEditor: React.FC = () => {
         localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
         updateBoissons(updatedBoissons);
         
-        // Enregistrer la modification dans l'historique
-        if (boissonToDelete) {
-          trackAdminChange('Produits', 'Suppression', `Suppression du produit: ${boissonToDelete.nom}`);
-        }
+        // Enregistrer la modification dans l'historique avec les détails du produit supprimé
+        trackAdminChange(
+          'Produits', 
+          'Suppression', 
+          `Suppression du produit: ${boissonToDelete?.nom}`,
+          boissonToDelete,  // before data (le produit supprimé)
+          null  // after data (null pour une suppression)
+        );
         
         toast({
           title: "Boisson supprimée",
@@ -104,8 +118,14 @@ const ProduitEditor: React.FC = () => {
       localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
       updateBoissons(updatedBoissons);
       
-      // Enregistrer la modification dans l'historique
-      trackAdminChange('Produits', 'Ajout', `Ajout du produit: ${boissonToAdd.nom}`);
+      // Enregistrer la modification dans l'historique avec les détails du produit ajouté
+      trackAdminChange(
+        'Produits', 
+        'Ajout', 
+        `Ajout du produit: ${boissonToAdd.nom}`,
+        null,  // before data (null pour un ajout)
+        boissonToAdd  // after data (le nouveau produit avec tous ses détails)
+      );
     }, 100);
     
     // Réinitialiser le formulaire
@@ -131,7 +151,10 @@ const ProduitEditor: React.FC = () => {
     try {
       // Identifier les produits modifiés
       const modifiedBoissons = editableBoissons.filter((boisson, index) => {
-        const originalBoisson = boissons[index];
+        const originalIndex = boissons.findIndex(b => b.id === boisson.id);
+        if (originalIndex === -1) return false;
+        
+        const originalBoisson = boissons[originalIndex];
         if (!originalBoisson) return false;
         
         // Vérifier les différences dans les propriétés
@@ -152,8 +175,21 @@ const ProduitEditor: React.FC = () => {
       
       // Enregistrer la modification dans l'historique si des changements ont été effectués
       if (modifiedBoissons.length > 0) {
+        // Créer des objets avant/après pour l'historique
+        const beforeData: Record<string, any> = {};
+        const afterData: Record<string, any> = {};
+        
+        modifiedBoissons.forEach(boisson => {
+          const originalIndex = boissons.findIndex(b => b.id === boisson.id);
+          if (originalIndex !== -1) {
+            const original = boissons[originalIndex];
+            beforeData[boisson.nom] = { ...original };
+            afterData[boisson.nom] = { ...boisson };
+          }
+        });
+        
         const details = `Modification des produits: ${modifiedBoissons.map(b => b.nom).join(', ')}`;
-        trackAdminChange('Produits', 'Modification', details);
+        trackAdminChange('Produits', 'Modification', details, beforeData, afterData);
       }
       
       toast({
