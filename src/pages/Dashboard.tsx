@@ -6,7 +6,10 @@ import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
 import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package2, ArrowDownUp, Calculator } from 'lucide-react';
+import { Package2, ArrowDownUp, Calculator, Brain } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import AICalculation from '@/components/ai/AICalculation';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -17,7 +20,32 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold mb-6">Tableau de Bord</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Tableau de Bord</h1>
+        
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button 
+              className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
+            >
+              <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
+              <Brain className="mr-2 h-5 w-5 animate-pulse" />
+              Calcul Intelligent
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                Analyse Automatique par Intelligence Artificielle
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
+              </DialogDescription>
+            </DialogHeader>
+            <AICalculation />
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
