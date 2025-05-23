@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Loader2, Image, FileText, Brain } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { Upload, Loader2, Image, FileText, Brain, CheckCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -16,17 +16,19 @@ const AICalculation: React.FC = () => {
   const [results, setResults] = useState<{name: string, quantity: number}[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { toast } = useToast();
-  const { boissons, updateStockItem } = useAppContext();
+  const { boissons, updateStockItem, stockItems } = useAppContext();
 
-  // Reset error when file changes
+  // Reset states when file changes
   useEffect(() => {
     if (file) {
       setErrorMessage(null);
+      setSuccessMessage(null);
+      setResults([]);
     }
   }, [file]);
 
-  // Simulate processing progress
   const simulateProgress = () => {
     setProgressValue(0);
     const interval = setInterval(() => {
@@ -52,9 +54,9 @@ const AICalculation: React.FC = () => {
   const handleFile = (selectedFile: File) => {
     setFile(selectedFile);
     setErrorMessage(null);
+    setSuccessMessage(null);
     setResults([]);
     
-    // Create a preview for image files
     if (selectedFile.type.startsWith('image/')) {
       const fileReader = new FileReader();
       fileReader.onload = () => {
@@ -96,7 +98,6 @@ const AICalculation: React.FC = () => {
     }
   };
 
-  // Helper function to convert file to base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -106,7 +107,6 @@ const AICalculation: React.FC = () => {
     });
   };
 
-  // Helper function to read file as text
   const readFileAsText = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -129,13 +129,11 @@ const AICalculation: React.FC = () => {
     setProcessing(true);
     setResults([]);
     setErrorMessage(null);
+    setSuccessMessage(null);
     const cleanupProgress = simulateProgress();
 
     try {
-      // Convert image to base64 if it's an image
       const base64 = await fileToBase64(file);
-
-      // Prepare the content based on file type
       let content: any = [];
       
       if (file.type.startsWith('image/')) {
@@ -143,42 +141,44 @@ const AICalculation: React.FC = () => {
           {
             parts: [
               {
-                text: `Voici une image contenant une liste de boissons avec des calculs. 
-                Chaque ligne est au format: NOM_BOISSON(calcul) 
-                Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
-                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
+                text: `Analyser cette image qui contient une liste de boissons avec des calculs. 
+                Format attendu: NOM_BOISSON(calcul) comme Flag(2+5+3+9), Castel(5+8+9+7), etc.
+                
+                Calcule la somme pour chaque boisson et donne les résultats au format JSON strict:
+                [{"name": "Flag", "quantity": 19}, {"name": "Castel", "quantity": 29}]
+                
+                Important: Retourne UNIQUEMENT le tableau JSON, rien d'autre.`
               },
               {
                 inlineData: {
                   mimeType: file.type,
-                  data: base64.split(',')[1] // Remove the data:image/jpeg;base64, part
+                  data: base64.split(',')[1]
                 }
               }
             ]
           }
         ];
       } else {
-        // For text files, read the content
         const textContent = await readFileAsText(file);
         content = [
           {
             parts: [
               {
-                text: `Voici une liste de boissons avec des calculs:
+                text: `Analyser ce texte qui contient une liste de boissons avec des calculs:
                 ${textContent}
-                Chaque ligne est au format: NOM_BOISSON(calcul)
-                Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
-                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
+                
+                Format attendu: NOM_BOISSON(calcul) comme Flag(2+5+3+9), Castel(5+8+9+7), etc.
+                
+                Calcule la somme pour chaque boisson et donne les résultats au format JSON strict:
+                [{"name": "Flag", "quantity": 19}, {"name": "Castel", "quantity": 29}]
+                
+                Important: Retourne UNIQUEMENT le tableau JSON, rien d'autre.`
               }
             ]
           }
         ];
       }
 
-      console.log("Sending request to Gemini API...");
-      // Make API request to Gemini
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCNPGOb71RMeo_XGb0xcnPwXC6RkgQlJ6I`, {
         method: 'POST',
         headers: {
@@ -190,166 +190,66 @@ const AICalculation: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error("API Error:", errorData);
-        throw new Error(`Erreur API: ${response.status} - ${errorData}`);
+        throw new Error(`Erreur API: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Received response from Gemini:", data);
-      
-      // Complete the progress bar
       setProgressValue(100);
       
-      // Parse the response to extract results
       if (data.candidates && data.candidates[0]?.content?.parts?.length > 0) {
         const text = data.candidates[0].content.parts[0].text;
-        console.log("Gemini text response:", text);
         
-        // Try to extract JSON from the response
+        // Nettoyer le texte et extraire le JSON
+        const cleanedText = text.replace(/```json|```/g, '').trim();
+        
         try {
-          // Strategy 1: Look for JSON array pattern in the text
-          const jsonMatch = text.match(/(\[.*?\])/s);
-          if (jsonMatch && jsonMatch[1]) {
-            const extractedJson = jsonMatch[1].replace(/'/g, '"');
-            console.log("Extracted JSON:", extractedJson);
-            try {
-              const parsedResults = JSON.parse(extractedJson);
-              if (Array.isArray(parsedResults)) {
-                setResults(parsedResults);
-                updateStockItemsFromResults(parsedResults);
-                toast({
-                  title: "Analyse réussie ✨",
-                  description: `${parsedResults.length} boissons traitées avec succès.`,
-                });
-                return;
+          const parsedResults = JSON.parse(cleanedText);
+          
+          if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+            setResults(parsedResults);
+            
+            // Mettre à jour le stock avec les résultats
+            let updatedCount = 0;
+            parsedResults.forEach(result => {
+              const matchedBoisson = boissons.find(
+                boisson => boisson.nom.toLowerCase().includes(result.name.toLowerCase()) ||
+                          result.name.toLowerCase().includes(boisson.nom.toLowerCase())
+              );
+              
+              if (matchedBoisson) {
+                updateStockItem(matchedBoisson.id, result.quantity);
+                updatedCount++;
               }
-            } catch (jsonError) {
-              console.error("Error parsing JSON from match:", jsonError);
-            }
-          }
-          
-          // Strategy 2: Try to find JSON anywhere in the text
-          const jsonRegex = /\[\s*{[\s\S]*}\s*\]/g;
-          const matches = text.match(jsonRegex);
-          if (matches && matches.length > 0) {
-            try {
-              const cleanJson = matches[0].replace(/'/g, '"');
-              const parsedResults = JSON.parse(cleanJson);
-              setResults(parsedResults);
-              updateStockItemsFromResults(parsedResults);
-              toast({
-                title: "Analyse réussie ✨",
-                description: `${parsedResults.length} boissons traitées avec succès.`,
-              });
-              return;
-            } catch (jsonError) {
-              console.error("Error parsing JSON from regex:", jsonError);
-            }
-          }
-          
-          // Strategy 3: Parse manually as a fallback
-          const manualResults = parseManualResults(text);
-          if (manualResults.length > 0) {
-            setResults(manualResults);
-            updateStockItemsFromResults(manualResults);
+            });
+            
+            setSuccessMessage(`${updatedCount} boisson(s) mise(s) à jour avec succès! Vous pouvez maintenant voir les quantités dans l'onglet "Calculs Généraux".`);
+            
             toast({
               title: "Analyse réussie ✨",
-              description: `${manualResults.length} boissons traitées avec succès.`,
+              description: `${updatedCount} boisson(s) mise(s) à jour dans le stock.`,
             });
           } else {
-            throw new Error("Format de réponse non reconnu");
+            throw new Error("Format de données invalide");
           }
-        } catch (error) {
-          console.error("Error parsing Gemini results:", error);
-          setErrorMessage("Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.");
-          toast({
-            title: "Erreur d'analyse",
-            description: "Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.",
-            variant: "destructive",
-          });
+        } catch (parseError) {
+          console.error("Erreur de parsing:", parseError);
+          setErrorMessage("Impossible d'analyser les résultats. Veuillez vérifier le format de votre fichier.");
         }
       } else {
         throw new Error("Réponse invalide de l'API");
       }
     } catch (error) {
-      console.error("Error processing with Gemini:", error);
+      console.error("Erreur:", error);
       setErrorMessage(error instanceof Error ? error.message : "Une erreur est survenue lors du traitement.");
       toast({
         title: "Erreur de traitement",
-        description: error instanceof Error ? error.message : "Une erreur est survenue lors du traitement.",
+        description: "Échec de l'analyse. Veuillez réessayer.",
         variant: "destructive",
       });
     } finally {
       cleanupProgress();
       setProcessing(false);
     }
-  };
-
-  // Helper function to update stock items based on AI results
-  const updateStockItemsFromResults = (results: {name: string, quantity: number}[]) => {
-    results.forEach(result => {
-      // Try to find matching boisson by name (case insensitive)
-      const matchedBoisson = boissons.find(
-        boisson => boisson.nom.toLowerCase() === result.name.toLowerCase()
-      );
-      
-      if (matchedBoisson) {
-        // Update the stock item with the calculated quantity
-        updateStockItem(matchedBoisson.id, result.quantity);
-      }
-    });
-  };
-
-  // Helper function to parse results manually if JSON parsing fails
-  const parseManualResults = (text: string): {name: string, quantity: number}[] => {
-    const results: {name: string, quantity: number}[] = [];
-    
-    // Try to match patterns like "Nom: Quantité" or "Nom - Quantité"
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      // Check for colon pattern (Name: 42)
-      const colonMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*:\s*(\d+)/);
-      if (colonMatch) {
-        results.push({ 
-          name: colonMatch[1].trim(), 
-          quantity: parseInt(colonMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for equals pattern (Name = 42)
-      const equalsMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*=\s*(\d+)/);
-      if (equalsMatch) {
-        results.push({ 
-          name: equalsMatch[1].trim(), 
-          quantity: parseInt(equalsMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for dash pattern (Name - 42)
-      const dashMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*-\s*(\d+)/);
-      if (dashMatch) {
-        results.push({ 
-          name: dashMatch[1].trim(), 
-          quantity: parseInt(dashMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for name followed by number in parentheses (Name (42))
-      const parensMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*\((\d+)\)/);
-      if (parensMatch) {
-        results.push({ 
-          name: parensMatch[1].trim(), 
-          quantity: parseInt(parensMatch[2]) 
-        });
-      }
-    }
-    
-    return results;
   };
 
   return (
@@ -367,7 +267,7 @@ const AICalculation: React.FC = () => {
           <div>Castel(5+8+9+7)</div>
         </div>
         <p className="text-sm text-gray-600 mt-2">
-          L'IA calculera automatiquement les sommes et mettra à jour votre stock.
+          L'IA calculera automatiquement les sommes et les placera dans les champs de quantité.
         </p>
       </div>
 
@@ -413,6 +313,14 @@ const AICalculation: React.FC = () => {
           </Alert>
         )}
 
+        {successMessage && (
+          <Alert className="mt-4 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-800">Succès</AlertTitle>
+            <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
+          </Alert>
+        )}
+
         {preview && (
           <div className="mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
             <p className="text-sm font-medium mb-2 text-gray-700">Aperçu de l'image:</p>
@@ -454,10 +362,6 @@ const AICalculation: React.FC = () => {
                 <Brain className="h-5 w-5" />
               </>
             )}
-            
-            {!processing && (
-              <span className="absolute right-0 -mt-12 -mr-12 h-24 w-24 rounded-full bg-white opacity-10 transform rotate-45 group-hover:scale-150 transition-transform duration-700 ease-in-out"></span>
-            )}
           </Button>
         </div>
 
@@ -467,41 +371,38 @@ const AICalculation: React.FC = () => {
               <CardContent className="p-0">
                 <div className="bg-green-50 py-3 px-4 border-b border-green-100">
                   <h3 className="text-lg font-medium text-green-800 flex items-center">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 mr-2">✓</span>
-                    Résultats de l'analyse
+                    <CheckCircle className="w-6 h-6 text-green-700 mr-2" />
+                    Quantités calculées et mises à jour
                   </h3>
                   <p className="text-sm text-green-700 mt-1">
-                    {results.length} élément(s) analysé(s) avec succès
+                    Allez dans l'onglet "Calculs Généraux" pour voir les quantités dans les champs.
                   </p>
                 </div>
                 
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="max-h-[200px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-green-50/50">
                         <th className="text-left p-3 font-medium text-green-800">Boisson</th>
                         <th className="text-center p-3 font-medium text-green-800">Quantité</th>
-                        <th className="text-center p-3 font-medium text-green-800">Prix unitaire</th>
                         <th className="text-right p-3 font-medium text-green-800">Statut</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {results.map((result, index) => {
                         const matchedBoisson = boissons.find(
-                          boisson => boisson.nom.toLowerCase() === result.name.toLowerCase()
+                          boisson => boisson.nom.toLowerCase().includes(result.name.toLowerCase()) ||
+                                    result.name.toLowerCase().includes(boisson.nom.toLowerCase())
                         );
-                        
-                        const prixUnitaire = matchedBoisson ? matchedBoisson.prix : '-';
                         
                         return (
                           <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="p-3 font-medium">{result.name}</td>
                             <td className="text-center p-3">{result.quantity}</td>
-                            <td className="text-center p-3">{prixUnitaire !== '-' ? `${prixUnitaire.toLocaleString()} FCFA` : '-'}</td>
                             <td className="text-right p-3">
                               {matchedBoisson ? (
                                 <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                                  Mise à jour
+                                  ✓ Mis à jour
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
