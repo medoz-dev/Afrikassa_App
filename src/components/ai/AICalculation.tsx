@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +16,7 @@ const AICalculation: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
-  const { boissons, updateStockItem } = useAppContext();
+  const { boissons, updateBoissons, updateStockItem } = useAppContext();
 
   // Reset error when file changes
   useEffect(() => {
@@ -134,10 +133,8 @@ const AICalculation: React.FC = () => {
     try {
       console.log("Début du traitement avec Gemini...");
       
-      // Convert image to base64 if it's an image
       const base64 = await fileToBase64(file);
 
-      // Prepare the content based on file type
       let content: any = [];
       
       if (file.type.startsWith('image/')) {
@@ -171,7 +168,6 @@ const AICalculation: React.FC = () => {
           }
         ];
       } else {
-        // For text files, read the content
         const textContent = await readFileAsText(file);
         content = [
           {
@@ -198,7 +194,6 @@ const AICalculation: React.FC = () => {
 
       console.log("Envoi de la requête à l'API Gemini...");
       
-      // Make API request to Gemini
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCNPGOb71RMeo_XGb0xcnPwXC6RkgQlJ6I`, {
         method: 'POST',
         headers: {
@@ -218,22 +213,16 @@ const AICalculation: React.FC = () => {
       const data = await response.json();
       console.log("Réponse reçue de Gemini:", data);
       
-      // Complete the progress bar
       setProgressValue(100);
       
-      // Parse the response to extract results
       if (data.candidates && data.candidates[0]?.content?.parts?.length > 0) {
         const text = data.candidates[0].content.parts[0].text;
         console.log("Texte de réponse Gemini:", text);
         
         try {
-          // Clean the text and try to extract JSON
           let cleanText = text.trim();
-          
-          // Remove markdown code blocks if present
           cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
           
-          // Try to find JSON array in the text
           const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
             cleanText = jsonMatch[0];
@@ -247,8 +236,8 @@ const AICalculation: React.FC = () => {
             console.log("Résultats parsés avec succès:", parsedResults);
             setResults(parsedResults);
             
-            // Update stock items with calculated quantities
-            updateStockItemsFromResults(parsedResults);
+            // Ajouter les nouvelles boissons et mettre à jour les quantités
+            addNewBoissonsAndUpdateStock(parsedResults);
             
             toast({
               title: "Analyse réussie ✨",
@@ -283,35 +272,71 @@ const AICalculation: React.FC = () => {
     }
   };
 
-  // Helper function to update stock items based on AI results
-  const updateStockItemsFromResults = (results: {name: string, quantity: number}[]) => {
+  // Fonction pour ajouter de nouvelles boissons et mettre à jour les quantités
+  const addNewBoissonsAndUpdateStock = (results: {name: string, quantity: number}[]) => {
+    let updatedBoissons = [...boissons];
+    let nextId = Math.max(...boissons.map(b => b.id)) + 1;
+    let addedCount = 0;
     let updatedCount = 0;
     
     results.forEach(result => {
-      // Try to find matching boisson by name (case insensitive and flexible matching)
-      const matchedBoisson = boissons.find(boisson => {
+      // Chercher une boisson existante
+      const existingBoisson = boissons.find(boisson => {
         const boissonName = boisson.nom.toLowerCase().trim();
         const resultName = result.name.toLowerCase().trim();
         
-        // Exact match
         if (boissonName === resultName) return true;
-        
-        // Partial match (boisson name contains result name or vice versa)
         if (boissonName.includes(resultName) || resultName.includes(boissonName)) return true;
         
         return false;
       });
       
-      if (matchedBoisson) {
-        console.log(`Mise à jour: ${matchedBoisson.nom} -> quantité: ${result.quantity}`);
-        updateStockItem(matchedBoisson.id, result.quantity);
+      if (existingBoisson) {
+        // Mettre à jour la quantité pour une boisson existante
+        console.log(`Mise à jour: ${existingBoisson.nom} -> quantité: ${result.quantity}`);
+        updateStockItem(existingBoisson.id, result.quantity);
         updatedCount++;
       } else {
-        console.log(`Boisson non trouvée: ${result.name}`);
+        // Ajouter une nouvelle boisson avec des propriétés par défaut
+        const newBoisson = {
+          id: nextId++,
+          nom: result.name,
+          prix: 500, // Prix par défaut
+          trous: 12, // Trous par défaut
+          type: "casier" as const // Type par défaut
+        };
+        
+        updatedBoissons.push(newBoisson);
+        console.log(`Nouvelle boisson ajoutée: ${newBoisson.nom}`);
+        addedCount++;
       }
     });
     
-    console.log(`${updatedCount} boissons mises à jour sur ${results.length} analysées`);
+    // Mettre à jour la liste des boissons si de nouvelles ont été ajoutées
+    if (addedCount > 0) {
+      updateBoissons(updatedBoissons);
+      
+      // Attendre que les nouvelles boissons soient ajoutées, puis mettre à jour leurs quantités
+      setTimeout(() => {
+        results.forEach(result => {
+          const boisson = updatedBoissons.find(b => 
+            b.nom.toLowerCase().trim() === result.name.toLowerCase().trim()
+          );
+          if (boisson) {
+            updateStockItem(boisson.id, result.quantity);
+          }
+        });
+      }, 100);
+    }
+    
+    console.log(`${updatedCount} boissons mises à jour, ${addedCount} nouvelles boissons ajoutées`);
+    
+    if (addedCount > 0) {
+      toast({
+        title: "Nouvelles boissons détectées",
+        description: `${addedCount} nouvelle(s) boisson(s) ajoutée(s) avec des paramètres par défaut.`,
+      });
+    }
   };
 
   return (
