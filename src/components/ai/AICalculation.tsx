@@ -1,7 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Loader2, Image, FileText, Brain } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,8 +15,16 @@ const AICalculation: React.FC = () => {
   const [progressValue, setProgressValue] = useState(0);
   const [results, setResults] = useState<{name: string, quantity: number}[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
   const { boissons, updateStockItem } = useAppContext();
+
+  // Reset error when file changes
+  useEffect(() => {
+    if (file) {
+      setErrorMessage(null);
+    }
+  }, [file]);
 
   // Simulate processing progress
   const simulateProgress = () => {
@@ -44,12 +51,18 @@ const AICalculation: React.FC = () => {
   
   const handleFile = (selectedFile: File) => {
     setFile(selectedFile);
+    setErrorMessage(null);
+    setResults([]);
     
     // Create a preview for image files
     if (selectedFile.type.startsWith('image/')) {
       const fileReader = new FileReader();
       fileReader.onload = () => {
         setPreview(fileReader.result as string);
+      };
+      fileReader.onerror = () => {
+        setErrorMessage("Erreur lors de la lecture du fichier");
+        setPreview(null);
       };
       fileReader.readAsDataURL(selectedFile);
     } else {
@@ -83,6 +96,26 @@ const AICalculation: React.FC = () => {
     }
   };
 
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Helper function to read file as text
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsText(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const processWithGemini = async () => {
     if (!file) {
       toast({
@@ -95,6 +128,7 @@ const AICalculation: React.FC = () => {
 
     setProcessing(true);
     setResults([]);
+    setErrorMessage(null);
     const cleanupProgress = simulateProgress();
 
     try {
@@ -112,8 +146,8 @@ const AICalculation: React.FC = () => {
                 text: `Voici une image contenant une liste de boissons avec des calculs. 
                 Chaque ligne est au format: NOM_BOISSON(calcul) 
                 Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste.
-                Format de réponse souhaité: [{nom: "Flag", quantite: 19}, {nom: "Castel", quantite: 29}]`
+                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
+                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
               },
               {
                 inlineData: {
@@ -135,14 +169,15 @@ const AICalculation: React.FC = () => {
                 ${textContent}
                 Chaque ligne est au format: NOM_BOISSON(calcul)
                 Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste.
-                Format de réponse souhaité: [{nom: "Flag", quantite: 19}, {nom: "Castel", quantite: 29}]`
+                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
+                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
               }
             ]
           }
         ];
       }
 
+      console.log("Sending request to Gemini API...");
       // Make API request to Gemini
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCNPGOb71RMeo_XGb0xcnPwXC6RkgQlJ6I`, {
         method: 'POST',
@@ -155,10 +190,13 @@ const AICalculation: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+        const errorData = await response.text();
+        console.error("API Error:", errorData);
+        throw new Error(`Erreur API: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
+      console.log("Received response from Gemini:", data);
       
       // Complete the progress bar
       setProgressValue(100);
@@ -166,40 +204,65 @@ const AICalculation: React.FC = () => {
       // Parse the response to extract results
       if (data.candidates && data.candidates[0]?.content?.parts?.length > 0) {
         const text = data.candidates[0].content.parts[0].text;
-        console.log("Gemini response:", text);
+        console.log("Gemini text response:", text);
         
         // Try to extract JSON from the response
         try {
-          // Look for array pattern in the text
+          // Strategy 1: Look for JSON array pattern in the text
           const jsonMatch = text.match(/(\[.*?\])/s);
           if (jsonMatch && jsonMatch[1]) {
             const extractedJson = jsonMatch[1].replace(/'/g, '"');
-            const parsedResults = JSON.parse(extractedJson);
-            setResults(parsedResults);
-            
-            // Update stock items based on the results
-            updateStockItemsFromResults(parsedResults);
-            
-            toast({
-              title: "Analyse réussie ✨",
-              description: `${parsedResults.length} boissons traitées avec succès.`,
-            });
-          } else {
-            // Fallback: try to parse manually
-            const manualResults = parseManualResults(text);
-            if (manualResults.length > 0) {
-              setResults(manualResults);
-              updateStockItemsFromResults(manualResults);
+            console.log("Extracted JSON:", extractedJson);
+            try {
+              const parsedResults = JSON.parse(extractedJson);
+              if (Array.isArray(parsedResults)) {
+                setResults(parsedResults);
+                updateStockItemsFromResults(parsedResults);
+                toast({
+                  title: "Analyse réussie ✨",
+                  description: `${parsedResults.length} boissons traitées avec succès.`,
+                });
+                return;
+              }
+            } catch (jsonError) {
+              console.error("Error parsing JSON from match:", jsonError);
+            }
+          }
+          
+          // Strategy 2: Try to find JSON anywhere in the text
+          const jsonRegex = /\[\s*{[\s\S]*}\s*\]/g;
+          const matches = text.match(jsonRegex);
+          if (matches && matches.length > 0) {
+            try {
+              const cleanJson = matches[0].replace(/'/g, '"');
+              const parsedResults = JSON.parse(cleanJson);
+              setResults(parsedResults);
+              updateStockItemsFromResults(parsedResults);
               toast({
                 title: "Analyse réussie ✨",
-                description: `${manualResults.length} boissons traitées avec succès.`,
+                description: `${parsedResults.length} boissons traitées avec succès.`,
               });
-            } else {
-              throw new Error("Format de réponse non reconnu");
+              return;
+            } catch (jsonError) {
+              console.error("Error parsing JSON from regex:", jsonError);
             }
+          }
+          
+          // Strategy 3: Parse manually as a fallback
+          const manualResults = parseManualResults(text);
+          if (manualResults.length > 0) {
+            setResults(manualResults);
+            updateStockItemsFromResults(manualResults);
+            toast({
+              title: "Analyse réussie ✨",
+              description: `${manualResults.length} boissons traitées avec succès.`,
+            });
+          } else {
+            throw new Error("Format de réponse non reconnu");
           }
         } catch (error) {
           console.error("Error parsing Gemini results:", error);
+          setErrorMessage("Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.");
           toast({
             title: "Erreur d'analyse",
             description: "Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.",
@@ -211,6 +274,7 @@ const AICalculation: React.FC = () => {
       }
     } catch (error) {
       console.error("Error processing with Gemini:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Une erreur est survenue lors du traitement.");
       toast({
         title: "Erreur de traitement",
         description: error instanceof Error ? error.message : "Une erreur est survenue lors du traitement.",
@@ -243,42 +307,49 @@ const AICalculation: React.FC = () => {
     
     // Try to match patterns like "Nom: Quantité" or "Nom - Quantité"
     const lines = text.split('\n');
+    
     for (const line of lines) {
-      // Try different separators
-      const separators = [':', '-', '=', ','];
-      for (const separator of separators) {
-        if (line.includes(separator)) {
-          const [name, quantityStr] = line.split(separator).map(s => s.trim());
-          const quantity = parseInt(quantityStr);
-          if (name && !isNaN(quantity)) {
-            results.push({ name, quantity });
-            break;
-          }
-        }
+      // Check for colon pattern (Name: 42)
+      const colonMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*:\s*(\d+)/);
+      if (colonMatch) {
+        results.push({ 
+          name: colonMatch[1].trim(), 
+          quantity: parseInt(colonMatch[2]) 
+        });
+        continue;
+      }
+      
+      // Check for equals pattern (Name = 42)
+      const equalsMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*=\s*(\d+)/);
+      if (equalsMatch) {
+        results.push({ 
+          name: equalsMatch[1].trim(), 
+          quantity: parseInt(equalsMatch[2]) 
+        });
+        continue;
+      }
+      
+      // Check for dash pattern (Name - 42)
+      const dashMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*-\s*(\d+)/);
+      if (dashMatch) {
+        results.push({ 
+          name: dashMatch[1].trim(), 
+          quantity: parseInt(dashMatch[2]) 
+        });
+        continue;
+      }
+      
+      // Check for name followed by number in parentheses (Name (42))
+      const parensMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*\((\d+)\)/);
+      if (parensMatch) {
+        results.push({ 
+          name: parensMatch[1].trim(), 
+          quantity: parseInt(parensMatch[2]) 
+        });
       }
     }
     
     return results;
-  };
-
-  // Helper function to convert file to base64
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  // Helper function to read file as text
-  const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsText(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
   };
 
   return (
@@ -334,6 +405,13 @@ const AICalculation: React.FC = () => {
             </div>
           </label>
         </div>
+
+        {errorMessage && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Erreur</AlertTitle>
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
 
         {preview && (
           <div className="mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
@@ -403,6 +481,7 @@ const AICalculation: React.FC = () => {
                       <tr className="bg-green-50/50">
                         <th className="text-left p-3 font-medium text-green-800">Boisson</th>
                         <th className="text-center p-3 font-medium text-green-800">Quantité</th>
+                        <th className="text-center p-3 font-medium text-green-800">Prix unitaire</th>
                         <th className="text-right p-3 font-medium text-green-800">Statut</th>
                       </tr>
                     </thead>
@@ -412,10 +491,13 @@ const AICalculation: React.FC = () => {
                           boisson => boisson.nom.toLowerCase() === result.name.toLowerCase()
                         );
                         
+                        const prixUnitaire = matchedBoisson ? matchedBoisson.prix : '-';
+                        
                         return (
                           <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="p-3 font-medium">{result.name}</td>
                             <td className="text-center p-3">{result.quantity}</td>
+                            <td className="text-center p-3">{prixUnitaire !== '-' ? `${prixUnitaire.toLocaleString()} FCFA` : '-'}</td>
                             <td className="text-right p-3">
                               {matchedBoisson ? (
                                 <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
