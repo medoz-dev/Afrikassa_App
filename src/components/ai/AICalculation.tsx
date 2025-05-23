@@ -237,7 +237,7 @@ const AICalculation: React.FC = () => {
             setResults(parsedResults);
             
             // Ajouter les nouvelles boissons et mettre à jour les quantités
-            addNewBoissonsAndUpdateStock(parsedResults);
+            await addNewBoissonsAndUpdateStock(parsedResults);
             
             toast({
               title: "Analyse réussie ✨",
@@ -273,14 +273,14 @@ const AICalculation: React.FC = () => {
   };
 
   // Fonction pour ajouter de nouvelles boissons et mettre à jour les quantités
-  const addNewBoissonsAndUpdateStock = (results: {name: string, quantity: number}[]) => {
+  const addNewBoissonsAndUpdateStock = async (results: {name: string, quantity: number}[]) => {
     let updatedBoissons = [...boissons];
-    let nextId = Math.max(...boissons.map(b => b.id)) + 1;
+    let nextId = Math.max(...boissons.map(b => b.id), 0) + 1;
     let addedCount = 0;
     let updatedCount = 0;
     
+    // Étape 1: Ajouter toutes les nouvelles boissons nécessaires
     results.forEach(result => {
-      // Chercher une boisson existante
       const existingBoisson = boissons.find(boisson => {
         const boissonName = boisson.nom.toLowerCase().trim();
         const resultName = result.name.toLowerCase().trim();
@@ -291,50 +291,59 @@ const AICalculation: React.FC = () => {
         return false;
       });
       
-      if (existingBoisson) {
-        // Mettre à jour la quantité pour une boisson existante
-        console.log(`Mise à jour: ${existingBoisson.nom} -> quantité: ${result.quantity}`);
-        updateStockItem(existingBoisson.id, result.quantity);
-        updatedCount++;
-      } else {
-        // Ajouter une nouvelle boisson avec des propriétés par défaut
+      if (!existingBoisson) {
+        // Ajouter une nouvelle boisson avec toutes les propriétés nécessaires
         const newBoisson = {
           id: nextId++,
           nom: result.name,
           prix: 500, // Prix par défaut
-          trous: 12, // Trous par défaut
+          trous: 12, // Trous par défaut  
           type: "casier" as const // Type par défaut
         };
         
         updatedBoissons.push(newBoisson);
-        console.log(`Nouvelle boisson ajoutée: ${newBoisson.nom}`);
+        console.log(`Nouvelle boisson ajoutée: ${newBoisson.nom} avec ID: ${newBoisson.id}`);
         addedCount++;
       }
     });
     
-    // Mettre à jour la liste des boissons si de nouvelles ont été ajoutées
+    // Étape 2: Mettre à jour la liste des boissons si de nouvelles ont été ajoutées
     if (addedCount > 0) {
+      console.log("Mise à jour de la liste des boissons avec les nouvelles boissons...");
       updateBoissons(updatedBoissons);
       
-      // Attendre que les nouvelles boissons soient ajoutées, puis mettre à jour leurs quantités
-      setTimeout(() => {
-        results.forEach(result => {
-          const boisson = updatedBoissons.find(b => 
-            b.nom.toLowerCase().trim() === result.name.toLowerCase().trim()
-          );
-          if (boisson) {
-            updateStockItem(boisson.id, result.quantity);
-          }
-        });
-      }, 100);
+      // Attendre que le contexte soit mis à jour
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
+    
+    // Étape 3: Mettre à jour toutes les quantités (existantes et nouvelles)
+    results.forEach(result => {
+      // Chercher dans la liste mise à jour
+      const targetBoisson = updatedBoissons.find(boisson => {
+        const boissonName = boisson.nom.toLowerCase().trim();
+        const resultName = result.name.toLowerCase().trim();
+        
+        if (boissonName === resultName) return true;
+        if (boissonName.includes(resultName) || resultName.includes(boissonName)) return true;
+        
+        return false;
+      });
+      
+      if (targetBoisson) {
+        console.log(`Mise à jour de la quantité pour ${targetBoisson.nom} (ID: ${targetBoisson.id}) -> quantité: ${result.quantity}`);
+        updateStockItem(targetBoisson.id, result.quantity);
+        updatedCount++;
+      } else {
+        console.warn(`Boisson non trouvée pour mise à jour: ${result.name}`);
+      }
+    });
     
     console.log(`${updatedCount} boissons mises à jour, ${addedCount} nouvelles boissons ajoutées`);
     
     if (addedCount > 0) {
       toast({
         title: "Nouvelles boissons détectées",
-        description: `${addedCount} nouvelle(s) boisson(s) ajoutée(s) avec des paramètres par défaut.`,
+        description: `${addedCount} nouvelle(s) boisson(s) ajoutée(s) avec des paramètres par défaut (prix: 500 FCFA, trous: 12, type: casier).`,
       });
     }
   };
@@ -488,7 +497,7 @@ const AICalculation: React.FC = () => {
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
-                                  Non trouvé
+                                  Nouveau produit ajouté
                                 </span>
                               )}
                             </td>
