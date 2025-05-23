@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Loader2, Image, FileText, Brain } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -132,6 +132,8 @@ const AICalculation: React.FC = () => {
     const cleanupProgress = simulateProgress();
 
     try {
+      console.log("Début du traitement avec Gemini...");
+      
       // Convert image to base64 if it's an image
       const base64 = await fileToBase64(file);
 
@@ -143,16 +145,26 @@ const AICalculation: React.FC = () => {
           {
             parts: [
               {
-                text: `Voici une image contenant une liste de boissons avec des calculs. 
-                Chaque ligne est au format: NOM_BOISSON(calcul) 
-                Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
-                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
+                text: `Analysez cette image qui contient une liste de boissons avec des calculs mathématiques. 
+                
+                Le format est généralement : NOM_BOISSON(nombre1+nombre2+nombre3+...)
+                
+                Par exemple :
+                - Flag(2+5+3+9) = Flag avec un total de 19
+                - Castel(5+8+9+7) = Castel avec un total de 29
+                
+                Votre tâche :
+                1. Identifiez chaque nom de boisson
+                2. Calculez la somme des nombres entre parenthèses pour chaque boisson
+                3. Retournez le résultat UNIQUEMENT sous ce format JSON exact :
+                [{"name": "Flag", "quantity": 19}, {"name": "Castel", "quantity": 29}]
+                
+                Ne retournez rien d'autre que le JSON, pas d'explication, pas de texte supplémentaire.`
               },
               {
                 inlineData: {
                   mimeType: file.type,
-                  data: base64.split(',')[1] // Remove the data:image/jpeg;base64, part
+                  data: base64.split(',')[1]
                 }
               }
             ]
@@ -165,19 +177,27 @@ const AICalculation: React.FC = () => {
           {
             parts: [
               {
-                text: `Voici une liste de boissons avec des calculs:
+                text: `Analysez ce texte qui contient une liste de boissons avec des calculs mathématiques :
+                
                 ${textContent}
-                Chaque ligne est au format: NOM_BOISSON(calcul)
-                Par exemple: Flag(2+5+3+9), Castel(5+8+9+7), etc.
-                Calcule la somme pour chaque boisson et donne-moi les résultats sous forme de liste JSON.
-                Format de réponse souhaité: [{\"name\": \"Flag\", \"quantity\": 19}, {\"name\": \"Castel\", \"quantity\": 29}]`
+                
+                Le format est généralement : NOM_BOISSON(nombre1+nombre2+nombre3+...)
+                
+                Votre tâche :
+                1. Identifiez chaque nom de boisson
+                2. Calculez la somme des nombres entre parenthèses pour chaque boisson
+                3. Retournez le résultat UNIQUEMENT sous ce format JSON exact :
+                [{"name": "Flag", "quantity": 19}, {"name": "Castel", "quantity": 29}]
+                
+                Ne retournez rien d'autre que le JSON, pas d'explication, pas de texte supplémentaire.`
               }
             ]
           }
         ];
       }
 
-      console.log("Sending request to Gemini API...");
+      console.log("Envoi de la requête à l'API Gemini...");
+      
       // Make API request to Gemini
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCNPGOb71RMeo_XGb0xcnPwXC6RkgQlJ6I`, {
         method: 'POST',
@@ -191,12 +211,12 @@ const AICalculation: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error("API Error:", errorData);
-        throw new Error(`Erreur API: ${response.status} - ${errorData}`);
+        console.error("Erreur API:", errorData);
+        throw new Error(`Erreur API: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Received response from Gemini:", data);
+      console.log("Réponse reçue de Gemini:", data);
       
       // Complete the progress bar
       setProgressValue(100);
@@ -204,68 +224,45 @@ const AICalculation: React.FC = () => {
       // Parse the response to extract results
       if (data.candidates && data.candidates[0]?.content?.parts?.length > 0) {
         const text = data.candidates[0].content.parts[0].text;
-        console.log("Gemini text response:", text);
+        console.log("Texte de réponse Gemini:", text);
         
-        // Try to extract JSON from the response
         try {
-          // Strategy 1: Look for JSON array pattern in the text
-          const jsonMatch = text.match(/(\[.*?\])/s);
-          if (jsonMatch && jsonMatch[1]) {
-            const extractedJson = jsonMatch[1].replace(/'/g, '"');
-            console.log("Extracted JSON:", extractedJson);
-            try {
-              const parsedResults = JSON.parse(extractedJson);
-              if (Array.isArray(parsedResults)) {
-                setResults(parsedResults);
-                updateStockItemsFromResults(parsedResults);
-                toast({
-                  title: "Analyse réussie ✨",
-                  description: `${parsedResults.length} boissons traitées avec succès.`,
-                });
-                return;
-              }
-            } catch (jsonError) {
-              console.error("Error parsing JSON from match:", jsonError);
-            }
+          // Clean the text and try to extract JSON
+          let cleanText = text.trim();
+          
+          // Remove markdown code blocks if present
+          cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+          
+          // Try to find JSON array in the text
+          const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            cleanText = jsonMatch[0];
           }
           
-          // Strategy 2: Try to find JSON anywhere in the text
-          const jsonRegex = /\[\s*{[\s\S]*}\s*\]/g;
-          const matches = text.match(jsonRegex);
-          if (matches && matches.length > 0) {
-            try {
-              const cleanJson = matches[0].replace(/'/g, '"');
-              const parsedResults = JSON.parse(cleanJson);
-              setResults(parsedResults);
-              updateStockItemsFromResults(parsedResults);
-              toast({
-                title: "Analyse réussie ✨",
-                description: `${parsedResults.length} boissons traitées avec succès.`,
-              });
-              return;
-            } catch (jsonError) {
-              console.error("Error parsing JSON from regex:", jsonError);
-            }
-          }
+          console.log("Texte nettoyé pour parsing:", cleanText);
           
-          // Strategy 3: Parse manually as a fallback
-          const manualResults = parseManualResults(text);
-          if (manualResults.length > 0) {
-            setResults(manualResults);
-            updateStockItemsFromResults(manualResults);
+          const parsedResults = JSON.parse(cleanText);
+          
+          if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+            console.log("Résultats parsés avec succès:", parsedResults);
+            setResults(parsedResults);
+            
+            // Update stock items with calculated quantities
+            updateStockItemsFromResults(parsedResults);
+            
             toast({
               title: "Analyse réussie ✨",
-              description: `${manualResults.length} boissons traitées avec succès.`,
+              description: `${parsedResults.length} boissons analysées et mises à jour dans le stock.`,
             });
           } else {
-            throw new Error("Format de réponse non reconnu");
+            throw new Error("Format de réponse invalide");
           }
-        } catch (error) {
-          console.error("Error parsing Gemini results:", error);
-          setErrorMessage("Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.");
+        } catch (parseError) {
+          console.error("Erreur de parsing JSON:", parseError);
+          setErrorMessage("L'IA n'a pas pu analyser correctement le fichier. Vérifiez le format des données.");
           toast({
             title: "Erreur d'analyse",
-            description: "Impossible d'analyser les résultats de l'IA. Veuillez essayer à nouveau.",
+            description: "Impossible d'analyser les résultats. Vérifiez le format du fichier.",
             variant: "destructive",
           });
         }
@@ -273,7 +270,7 @@ const AICalculation: React.FC = () => {
         throw new Error("Réponse invalide de l'API");
       }
     } catch (error) {
-      console.error("Error processing with Gemini:", error);
+      console.error("Erreur lors du traitement:", error);
       setErrorMessage(error instanceof Error ? error.message : "Une erreur est survenue lors du traitement.");
       toast({
         title: "Erreur de traitement",
@@ -288,68 +285,33 @@ const AICalculation: React.FC = () => {
 
   // Helper function to update stock items based on AI results
   const updateStockItemsFromResults = (results: {name: string, quantity: number}[]) => {
+    let updatedCount = 0;
+    
     results.forEach(result => {
-      // Try to find matching boisson by name (case insensitive)
-      const matchedBoisson = boissons.find(
-        boisson => boisson.nom.toLowerCase() === result.name.toLowerCase()
-      );
+      // Try to find matching boisson by name (case insensitive and flexible matching)
+      const matchedBoisson = boissons.find(boisson => {
+        const boissonName = boisson.nom.toLowerCase().trim();
+        const resultName = result.name.toLowerCase().trim();
+        
+        // Exact match
+        if (boissonName === resultName) return true;
+        
+        // Partial match (boisson name contains result name or vice versa)
+        if (boissonName.includes(resultName) || resultName.includes(boissonName)) return true;
+        
+        return false;
+      });
       
       if (matchedBoisson) {
-        // Update the stock item with the calculated quantity
+        console.log(`Mise à jour: ${matchedBoisson.nom} -> quantité: ${result.quantity}`);
         updateStockItem(matchedBoisson.id, result.quantity);
+        updatedCount++;
+      } else {
+        console.log(`Boisson non trouvée: ${result.name}`);
       }
     });
-  };
-
-  // Helper function to parse results manually if JSON parsing fails
-  const parseManualResults = (text: string): {name: string, quantity: number}[] => {
-    const results: {name: string, quantity: number}[] = [];
     
-    // Try to match patterns like "Nom: Quantité" or "Nom - Quantité"
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      // Check for colon pattern (Name: 42)
-      const colonMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*:\s*(\d+)/);
-      if (colonMatch) {
-        results.push({ 
-          name: colonMatch[1].trim(), 
-          quantity: parseInt(colonMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for equals pattern (Name = 42)
-      const equalsMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*=\s*(\d+)/);
-      if (equalsMatch) {
-        results.push({ 
-          name: equalsMatch[1].trim(), 
-          quantity: parseInt(equalsMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for dash pattern (Name - 42)
-      const dashMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*-\s*(\d+)/);
-      if (dashMatch) {
-        results.push({ 
-          name: dashMatch[1].trim(), 
-          quantity: parseInt(dashMatch[2]) 
-        });
-        continue;
-      }
-      
-      // Check for name followed by number in parentheses (Name (42))
-      const parensMatch = line.match(/([A-Za-zÀ-ÖØ-öø-ÿ\s]+)\s*\((\d+)\)/);
-      if (parensMatch) {
-        results.push({ 
-          name: parensMatch[1].trim(), 
-          quantity: parseInt(parensMatch[2]) 
-        });
-      }
-    }
-    
-    return results;
+    console.log(`${updatedCount} boissons mises à jour sur ${results.length} analysées`);
   };
 
   return (
@@ -367,7 +329,7 @@ const AICalculation: React.FC = () => {
           <div>Castel(5+8+9+7)</div>
         </div>
         <p className="text-sm text-gray-600 mt-2">
-          L'IA calculera automatiquement les sommes et mettra à jour votre stock.
+          L'IA calculera automatiquement les sommes et mettra à jour UNIQUEMENT les quantités dans votre stock.
         </p>
       </div>
 
@@ -450,13 +412,9 @@ const AICalculation: React.FC = () => {
               </>
             ) : (
               <>
-                <span className="mr-2">Lancer l'analyse</span>
+                <span className="mr-2">Analyser et Calculer</span>
                 <Brain className="h-5 w-5" />
               </>
-            )}
-            
-            {!processing && (
-              <span className="absolute right-0 -mt-12 -mr-12 h-24 w-24 rounded-full bg-white opacity-10 transform rotate-45 group-hover:scale-150 transition-transform duration-700 ease-in-out"></span>
             )}
           </Button>
         </div>
@@ -468,10 +426,10 @@ const AICalculation: React.FC = () => {
                 <div className="bg-green-50 py-3 px-4 border-b border-green-100">
                   <h3 className="text-lg font-medium text-green-800 flex items-center">
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 mr-2">✓</span>
-                    Résultats de l'analyse
+                    Quantités calculées et mises à jour
                   </h3>
                   <p className="text-sm text-green-700 mt-1">
-                    {results.length} élément(s) analysé(s) avec succès
+                    {results.length} boisson(s) analysée(s)
                   </p>
                 </div>
                 
@@ -480,28 +438,28 @@ const AICalculation: React.FC = () => {
                     <thead>
                       <tr className="bg-green-50/50">
                         <th className="text-left p-3 font-medium text-green-800">Boisson</th>
-                        <th className="text-center p-3 font-medium text-green-800">Quantité</th>
-                        <th className="text-center p-3 font-medium text-green-800">Prix unitaire</th>
+                        <th className="text-center p-3 font-medium text-green-800">Quantité calculée</th>
                         <th className="text-right p-3 font-medium text-green-800">Statut</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {results.map((result, index) => {
-                        const matchedBoisson = boissons.find(
-                          boisson => boisson.nom.toLowerCase() === result.name.toLowerCase()
-                        );
-                        
-                        const prixUnitaire = matchedBoisson ? matchedBoisson.prix : '-';
+                        const matchedBoisson = boissons.find(boisson => {
+                          const boissonName = boisson.nom.toLowerCase().trim();
+                          const resultName = result.name.toLowerCase().trim();
+                          return boissonName === resultName || 
+                                 boissonName.includes(resultName) || 
+                                 resultName.includes(boissonName);
+                        });
                         
                         return (
                           <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="p-3 font-medium">{result.name}</td>
-                            <td className="text-center p-3">{result.quantity}</td>
-                            <td className="text-center p-3">{prixUnitaire !== '-' ? `${prixUnitaire.toLocaleString()} FCFA` : '-'}</td>
+                            <td className="text-center p-3 font-bold">{result.quantity}</td>
                             <td className="text-right p-3">
                               {matchedBoisson ? (
                                 <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                                  Mise à jour
+                                  ✓ Mis à jour
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
