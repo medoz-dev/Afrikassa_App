@@ -1,8 +1,8 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import VideoModal from '@/components/demo/VideoModal';
 import { 
   BarChart3, 
   Package, 
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 
 const Landing: React.FC = () => {
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
   const features = [
     {
       icon: <Package className="h-8 w-8 text-primary" />,
@@ -59,6 +61,12 @@ const Landing: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
+      {/* Video Modal */}
+      <VideoModal 
+        isOpen={isVideoModalOpen} 
+        onClose={() => setIsVideoModalOpen(false)} 
+      />
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -91,7 +99,12 @@ const Landing: React.FC = () => {
                   Commencer Maintenant
                 </Button>
               </Link>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-3">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="text-lg px-8 py-3"
+                onClick={() => setIsVideoModalOpen(true)}
+              >
                 Voir la Démonstration
               </Button>
             </div>
@@ -99,7 +112,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
       <section className="py-16 bg-primary text-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -113,7 +125,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Features Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
@@ -142,7 +153,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* About Creator Section */}
       <section className="py-20 bg-gray-50 px-4">
         <div className="container mx-auto">
           <div className="max-w-4xl mx-auto text-center">
@@ -185,7 +195,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Benefits Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
           <div className="max-w-4xl mx-auto">
@@ -238,7 +247,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
       <section className="py-20 bg-primary text-white px-4">
         <div className="container mx-auto text-center">
           <h2 className="text-4xl font-bold mb-6">
@@ -256,7 +264,6 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-gray-900 text-white py-12 px-4">
         <div className="container mx-auto text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
