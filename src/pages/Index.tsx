@@ -4,7 +4,6 @@ import { AppProvider } from '@/context/AppContext';
 import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Landing from '@/pages/Landing';
-import Pricing from '@/pages/Pricing';
 import { Route, Routes } from 'react-router-dom';
 import Stock from '@/pages/Stock';
 import Ventes from '@/pages/Ventes';
@@ -16,7 +15,6 @@ const Index: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/pricing" element={<Pricing />} />
       <Route path="/*" element={
         <AppProvider>
           <Layout>
