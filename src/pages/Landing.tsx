@@ -74,8 +74,8 @@ const Landing: React.FC = () => {
             <Package className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold text-primary">AfriKassa</span>
           </div>
-          <Link to="/dashboard">
-            <Button>Accéder à l'Application</Button>
+          <Link to="/pricing">
+            <Button>Commencer Maintenant</Button>
           </Link>
         </div>
       </header>
@@ -94,7 +94,7 @@ const Landing: React.FC = () => {
               et générez des rapports détaillés en toute simplicité.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/dashboard">
+              <Link to="/pricing">
                 <Button size="lg" className="text-lg px-8 py-3">
                   Commencer Maintenant
                 </Button>
@@ -256,9 +256,9 @@ const Landing: React.FC = () => {
             Rejoignez les centaines d'entrepreneurs qui font déjà confiance à AfriKassa 
             pour gérer leur établissement avec succès.
           </p>
-          <Link to="/dashboard">
+          <Link to="/pricing">
             <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-              Commencer Gratuitement
+              Voir les Tarifs
             </Button>
           </Link>
         </div>
