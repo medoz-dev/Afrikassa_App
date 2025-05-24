@@ -3,6 +3,7 @@ import React from 'react';
 import { AppProvider } from '@/context/AppContext';
 import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
+import Landing from '@/pages/Landing';
 import { Route, Routes } from 'react-router-dom';
 import Stock from '@/pages/Stock';
 import Ventes from '@/pages/Ventes';
@@ -12,18 +13,23 @@ import Admin from '@/pages/Admin';
 
 const Index: React.FC = () => {
   return (
-    <AppProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/stock" element={<Stock />} />
-          <Route path="/ventes" element={<Ventes />} />
-          <Route path="/caisse" element={<Caisse />} />
-          <Route path="/rapports" element={<Rapports />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-      </Layout>
-    </AppProvider>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/*" element={
+        <AppProvider>
+          <Layout>
+            <Routes>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/stock" element={<Stock />} />
+              <Route path="/ventes" element={<Ventes />} />
+              <Route path="/caisse" element={<Caisse />} />
+              <Route path="/rapports" element={<Rapports />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+          </Layout>
+        </AppProvider>
+      } />
+    </Routes>
   );
 };
 
