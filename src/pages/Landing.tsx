@@ -1,8 +1,8 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import DemoModal from '@/components/demo/DemoModal';
 import { 
   BarChart3, 
   Package, 
@@ -91,9 +91,11 @@ const Landing: React.FC = () => {
                   Commencer Maintenant
                 </Button>
               </Link>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-3">
-                Voir la Démonstration
-              </Button>
+              <DemoModal>
+                <Button variant="outline" size="lg" className="text-lg px-8 py-3">
+                  Voir la Démonstration
+                </Button>
+              </DemoModal>
             </div>
           </div>
         </div>
