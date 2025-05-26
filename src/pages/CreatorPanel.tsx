@@ -6,8 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Key, User, Database, Calendar } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Trash2, Plus, Key, User, Database } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -16,9 +15,7 @@ interface Client {
   username: string;
   password: string;
   dateCreation: string;
-  dateExpiration: string;
-  dureeAbonnement: number; // en jours
-  statut: 'actif' | 'inactif' | 'expire';
+  statut: 'actif' | 'inactif';
 }
 
 const CreatorPanel: React.FC = () => {
@@ -27,76 +24,21 @@ const CreatorPanel: React.FC = () => {
     nom: '',
     email: '',
     username: '',
-    password: '',
-    dureeAbonnement: 30
+    password: ''
   });
 
   // Charger les clients depuis le localStorage
   useEffect(() => {
     const clientsStockes = localStorage.getItem('clients_list');
     if (clientsStockes) {
-      const clientsParsed = JSON.parse(clientsStockes);
-      // Vérifier et mettre à jour le statut d'expiration
-      const clientsMisAJour = clientsParsed.map((client: Client) => {
-        if (client.dateExpiration) {
-          const dateExp = new Date(client.dateExpiration);
-          const aujourd = new Date();
-          if (dateExp < aujourd && client.statut === 'actif') {
-            return { ...client, statut: 'expire' as 'expire' };
-          }
-        }
-        return client;
-      });
-      setClients(clientsMisAJour);
-      
-      // Sauvegarder si des changements ont été apportés
-      if (JSON.stringify(clientsParsed) !== JSON.stringify(clientsMisAJour)) {
-        localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
-      }
+      setClients(JSON.parse(clientsStockes));
     }
-  }, []);
-
-  // Vérifier périodiquement l'expiration des abonnements
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const clientsStockes = localStorage.getItem('clients_list');
-      if (clientsStockes) {
-        const clientsParsed = JSON.parse(clientsStockes);
-        let changement = false;
-        
-        const clientsMisAJour = clientsParsed.map((client: Client) => {
-          if (client.dateExpiration && client.statut === 'actif') {
-            const dateExp = new Date(client.dateExpiration);
-            const aujourd = new Date();
-            if (dateExp < aujourd) {
-              changement = true;
-              return { ...client, statut: 'expire' as 'expire' };
-            }
-          }
-          return client;
-        });
-        
-        if (changement) {
-          setClients(clientsMisAJour);
-          localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
-        }
-      }
-    }, 60000); // Vérifier chaque minute
-
-    return () => clearInterval(interval);
   }, []);
 
   // Sauvegarder les clients dans le localStorage
   const sauvegarderClients = (nouveauxClients: Client[]) => {
     localStorage.setItem('clients_list', JSON.stringify(nouveauxClients));
     setClients(nouveauxClients);
-  };
-
-  // Calculer la date d'expiration
-  const calculerDateExpiration = (dureeJours: number) => {
-    const dateExpiration = new Date();
-    dateExpiration.setDate(dateExpiration.getDate() + dureeJours);
-    return dateExpiration.toISOString().split('T')[0];
   };
 
   // Générer un mot de passe aléatoire
@@ -135,18 +77,17 @@ const CreatorPanel: React.FC = () => {
       id: Date.now().toString(),
       ...nouveauClient,
       dateCreation: new Date().toLocaleDateString('fr-FR'),
-      dateExpiration: calculerDateExpiration(nouveauClient.dureeAbonnement),
       statut: 'actif'
     };
 
     const nouveauxClients = [...clients, client];
     sauvegarderClients(nouveauxClients);
 
-    setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
+    setNouveauClient({ nom: '', email: '', username: '', password: '' });
 
     toast({
       title: "Client ajouté",
-      description: `Client ${client.nom} ajouté avec succès. Expiration : ${new Date(client.dateExpiration).toLocaleDateString('fr-FR')}`,
+      description: `Client ${client.nom} ajouté avec succès`,
     });
   };
 
@@ -163,53 +104,12 @@ const CreatorPanel: React.FC = () => {
 
   // Changer le statut d'un client
   const changerStatut = (id: string) => {
-    const nouveauxClients = clients.map(client => {
-      if (client.id === id) {
-        let nouveauStatut: 'actif' | 'inactif' | 'expire';
-        if (client.statut === 'actif') {
-          nouveauStatut = 'inactif';
-        } else if (client.statut === 'inactif') {
-          nouveauStatut = 'actif';
-        } else {
-          nouveauStatut = 'actif'; // Réactiver un client expiré
-        }
-        return { ...client, statut: nouveauStatut };
-      }
-      return client;
-    });
+    const nouveauxClients = clients.map(client => 
+      client.id === id 
+        ? { ...client, statut: client.statut === 'actif' ? 'inactif' : 'actif' as 'actif' | 'inactif' }
+        : client
+    );
     sauvegarderClients(nouveauxClients);
-  };
-
-  // Prolonger l'abonnement
-  const prolongerAbonnement = (id: string, joursSupplementaires: number) => {
-    const nouveauxClients = clients.map(client => {
-      if (client.id === id) {
-        const nouvelleDate = new Date(client.dateExpiration);
-        nouvelleDate.setDate(nouvelleDate.getDate() + joursSupplementaires);
-        return { 
-          ...client, 
-          dateExpiration: nouvelleDate.toISOString().split('T')[0],
-          statut: 'actif' as 'actif'
-        };
-      }
-      return client;
-    });
-    sauvegarderClients(nouveauxClients);
-    
-    toast({
-      title: "Abonnement prolongé",
-      description: `Abonnement prolongé de ${joursSupplementaires} jours`,
-    });
-  };
-
-  // Obtenir la couleur du badge selon le statut
-  const obtenirCouleurStatut = (statut: string) => {
-    switch (statut) {
-      case 'actif': return 'bg-green-500';
-      case 'inactif': return 'bg-gray-500';
-      case 'expire': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
   };
 
   return (
@@ -218,7 +118,7 @@ const CreatorPanel: React.FC = () => {
         <User className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients et abonnements</p>
+          <p className="text-gray-600">Gestion des comptes clients</p>
         </div>
       </div>
 
@@ -277,25 +177,6 @@ const CreatorPanel: React.FC = () => {
                 </Button>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="duree">Durée d'abonnement</Label>
-              <Select 
-                value={nouveauClient.dureeAbonnement.toString()} 
-                onValueChange={(value) => setNouveauClient({ ...nouveauClient, dureeAbonnement: parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner la durée" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 jours (Essai)</SelectItem>
-                  <SelectItem value="30">30 jours (1 mois)</SelectItem>
-                  <SelectItem value="90">90 jours (3 mois)</SelectItem>
-                  <SelectItem value="180">180 jours (6 mois)</SelectItem>
-                  <SelectItem value="365">365 jours (1 an)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           
           <Button onClick={ajouterClient} className="mt-4">
@@ -323,68 +204,45 @@ const CreatorPanel: React.FC = () => {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Password</TableHead>
-                    <TableHead>Création</TableHead>
-                    <TableHead>Expiration</TableHead>
+                    <TableHead>Nom d'utilisateur</TableHead>
+                    <TableHead>Mot de passe</TableHead>
+                    <TableHead>Date création</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clients.map((client) => {
-                    const joursRestants = Math.ceil((new Date(client.dateExpiration).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    return (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">{client.nom}</TableCell>
-                        <TableCell>{client.email}</TableCell>
-                        <TableCell>{client.username}</TableCell>
-                        <TableCell>
-                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                            {client.password}
-                          </code>
-                        </TableCell>
-                        <TableCell>{client.dateCreation}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div>{new Date(client.dateExpiration).toLocaleDateString('fr-FR')}</div>
-                            <div className={`text-xs ${joursRestants <= 0 ? 'text-red-600' : joursRestants <= 7 ? 'text-yellow-600' : 'text-green-600'}`}>
-                              {joursRestants <= 0 ? 'Expiré' : `${joursRestants} jour(s) restant(s)`}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`${obtenirCouleurStatut(client.statut)} text-white`}
-                            onClick={() => changerStatut(client.id)}
-                          >
-                            {client.statut}
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => prolongerAbonnement(client.id, 30)}
-                            >
-                              <Calendar className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => supprimerClient(client.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {clients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.nom}</TableCell>
+                      <TableCell>{client.email}</TableCell>
+                      <TableCell>{client.username}</TableCell>
+                      <TableCell>
+                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                          {client.password}
+                        </code>
+                      </TableCell>
+                      <TableCell>{client.dateCreation}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant={client.statut === 'actif' ? 'default' : 'secondary'}
+                          size="sm"
+                          onClick={() => changerStatut(client.id)}
+                        >
+                          {client.statut}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => supprimerClient(client.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>

@@ -1,133 +1,100 @@
 
 import React from 'react';
+import { useAppContext } from '@/context/AppContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import StockTable from '@/components/stock/StockTable';
+import ArrivageTable from '@/components/stock/ArrivageTable';
+import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Package2, ArrowDownUp, Calculator, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
-import SubscriptionStatus from '@/components/subscription/SubscriptionStatus';
-import { 
-  Package, 
-  ShoppingCart, 
-  CreditCard, 
-  BarChart3, 
-  Settings,
-  Clock
-} from 'lucide-react';
+import AICalculation from '@/components/ai/AICalculation';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const Dashboard: React.FC = () => {
-  const menuItems = [
-    {
-      title: "Gestion du Stock",
-      description: "Gérer votre inventaire de boissons",
-      icon: Package,
-      link: "/stock",
-      color: "bg-blue-500"
-    },
-    {
-      title: "Suivi des Ventes",
-      description: "Enregistrer et suivre vos ventes",
-      icon: ShoppingCart,
-      link: "/ventes",
-      color: "bg-green-500"
-    },
-    {
-      title: "Calculs de Caisse",
-      description: "Effectuer vos calculs journaliers",
-      icon: CreditCard,
-      link: "/caisse",
-      color: "bg-purple-500"
-    },
-    {
-      title: "Rapports",
-      description: "Consulter vos rapports et statistiques",
-      icon: BarChart3,
-      link: "/rapports",
-      color: "bg-orange-500"
-    },
-    {
-      title: "Administration",
-      description: "Paramètres et configuration",
-      icon: Settings,
-      link: "/admin",
-      color: "bg-gray-500"
-    }
-  ];
+  const { 
+    stockTotal, 
+    arrivageTotal, 
+    venteTheorique 
+  } = useAppContext();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tableau de Bord</h1>
-          <p className="text-gray-600 mt-2">Bienvenue dans votre système de gestion AfriKassa</p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Clock className="h-4 w-4" />
-          <span>{new Date().toLocaleDateString('fr-FR')}</span>
-        </div>
-      </div>
-
-      {/* Statut d'abonnement */}
-      <SubscriptionStatus />
-
-      {/* Menu principal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {menuItems.map((item, index) => {
-          const IconComponent = item.icon;
-          return (
-            <Link key={index} to={item.link}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-3 rounded-lg ${item.color} text-white group-hover:scale-110 transition-transform`}>
-                      <IconComponent className="h-6 w-6" />
-                    </div>
-                    <CardTitle className="text-lg group-hover:text-primary transition-colors">
-                      {item.title}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-sm">{item.description}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Informations utiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Aide & Support</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Besoin d'aide ? Contactez notre équipe de support pour toute assistance.
-            </p>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Tableau de Bord</h1>
+        
+        <Dialog>
+          <DialogTrigger asChild>
             <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => window.open('https://wa.me/22961170017', '_blank')}
+              className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
             >
-              Contacter le Support
+              <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
+              <Brain className="mr-2 h-5 w-5 animate-pulse" />
+              Calcul Intelligent
             </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                Analyse Automatique par Intelligence Artificielle
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
+              </DialogDescription>
+            </DialogHeader>
+            <AICalculation />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stock Restant</CardTitle>
+            <Package2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stockTotal.toLocaleString()} FCFA</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Conseils d'utilisation</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Arrivage Total</CardTitle>
+            <ArrowDownUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <ul className="text-sm text-gray-600 space-y-2">
-              <li>• Commencez par configurer votre stock</li>
-              <li>• Enregistrez vos ventes quotidiennes</li>
-              <li>• Consultez régulièrement vos rapports</li>
-              <li>• Sauvegardez vos données importantes</li>
-            </ul>
+            <div className="text-2xl font-bold">{arrivageTotal.toLocaleString()} FCFA</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vente Théorique</CardTitle>
+            <Calculator className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{venteTheorique.toLocaleString()} FCFA</div>
           </CardContent>
         </Card>
       </div>
+
+      <Tabs defaultValue="stock" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="stock">Stock Restant</TabsTrigger>
+          <TabsTrigger value="arrivage">Arrivage</TabsTrigger>
+          <TabsTrigger value="calculs">Calculs Généraux</TabsTrigger>
+        </TabsList>
+        <TabsContent value="stock">
+          <StockTable />
+        </TabsContent>
+        <TabsContent value="arrivage">
+          <ArrivageTable />
+        </TabsContent>
+        <TabsContent value="calculs">
+          <CalculGeneral />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

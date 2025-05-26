@@ -38,54 +38,17 @@ const Login: React.FC = () => {
       const clients = JSON.parse(clientsStockes);
       const clientTrouve = clients.find((client: any) => 
         client.username === username && 
-        client.password === password
+        client.password === password && 
+        client.statut === 'actif'
       );
 
       if (clientTrouve) {
-        // Vérifier si l'abonnement est encore valide
-        const dateExpiration = new Date(clientTrouve.dateExpiration);
-        const aujourd = new Date();
-        
-        if (dateExpiration < aujourd) {
-          // Mettre à jour le statut du client à "expire"
-          const clientsMisAJour = clients.map((client: any) => 
-            client.id === clientTrouve.id ? { ...client, statut: 'expire' } : client
-          );
-          localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
-          
-          toast({
-            title: "Abonnement expiré",
-            description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
-        }
-        
-        if (clientTrouve.statut !== 'actif') {
-          toast({
-            title: "Compte inactif",
-            description: "Votre compte est inactif. Contactez l'administrateur.",
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
-        }
-
         // Sauvegarder les infos du client connecté
         localStorage.setItem('current_user', JSON.stringify(clientTrouve));
         
-        // Calculer les jours restants
-        const joursRestants = Math.ceil((dateExpiration.getTime() - aujourd.getTime()) / (1000 * 60 * 60 * 24));
-        
-        let message = `Bienvenue ${clientTrouve.nom} !`;
-        if (joursRestants <= 7) {
-          message += ` Attention : votre abonnement expire dans ${joursRestants} jour(s).`;
-        }
-        
         toast({
           title: "Connexion réussie",
-          description: message,
+          description: `Bienvenue ${clientTrouve.nom} !`,
         });
         navigate('/dashboard');
         setIsLoading(false);
