@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import { Package, Eye, EyeOff, User } from 'lucide-react';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -24,17 +24,44 @@ const Login: React.FC = () => {
     // Vérification pour le créateur de l'app
     if (password === 'meki') {
       toast({
-        title: "Connexion réussie",
-        description: "Bienvenue dans AfriKassa !",
+        title: "Connexion créateur réussie",
+        description: "Bienvenue dans le panneau créateur !",
       });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: "Échec de la connexion",
-        description: "Identifiants invalides. Contactez-nous pour obtenir votre accès.",
-        variant: "destructive"
-      });
+      navigate('/creator-panel');
+      setIsLoading(false);
+      return;
     }
+
+    // Vérification pour les clients
+    const clientsStockes = localStorage.getItem('clients_list');
+    if (clientsStockes) {
+      const clients = JSON.parse(clientsStockes);
+      const clientTrouve = clients.find((client: any) => 
+        client.username === username && 
+        client.password === password && 
+        client.statut === 'actif'
+      );
+
+      if (clientTrouve) {
+        // Sauvegarder les infos du client connecté
+        localStorage.setItem('current_user', JSON.stringify(clientTrouve));
+        
+        toast({
+          title: "Connexion réussie",
+          description: `Bienvenue ${clientTrouve.nom} !`,
+        });
+        navigate('/dashboard');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // Si aucune correspondance trouvée
+    toast({
+      title: "Échec de la connexion",
+      description: "Identifiants invalides ou compte inactif. Contactez-nous pour obtenir votre accès.",
+      variant: "destructive"
+    });
 
     setIsLoading(false);
   };
@@ -62,7 +89,8 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-2xl">
           <CardHeader className="text-center pb-8 bg-gradient-to-r from-primary to-primary/80 text-white rounded-t-lg">
-            <CardTitle className="text-2xl font-bold mb-2">
+            <CardTitle className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
+              <User className="h-6 w-6" />
               Connexion à AfriKassa
             </CardTitle>
             <CardDescription className="text-white/90">
