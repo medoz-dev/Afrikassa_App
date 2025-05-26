@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,10 @@ const Pricing: React.FC = () => {
 
   const handleFacebookContact = () => {
     window.open('https://web.facebook.com/melchior.melchior.2025', '_blank');
+  };
+
+  const handlePurchase = () => {
+    alert('Après votre paiement, vous recevrez vos identifiants de connexion par WhatsApp. Vous pourrez ensuite accéder à l\'application via la page de connexion.');
   };
 
   const features = [
@@ -36,9 +39,14 @@ const Pricing: React.FC = () => {
             <Package className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold text-primary">AfriKassa</span>
           </Link>
-          <Link to="/">
-            <Button variant="outline">Retour à l'accueil</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/login">
+              <Button variant="outline">Se connecter</Button>
+            </Link>
+            <Link to="/">
+              <Button variant="outline">Retour à l'accueil</Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -85,7 +93,7 @@ const Pricing: React.FC = () => {
                   <Button 
                     size="lg" 
                     className="w-full text-lg py-6"
-                    onClick={() => alert('Redirection vers la page de paiement (à implémenter)')}
+                    onClick={handlePurchase}
                   >
                     Procéder au Paiement
                   </Button>

@@ -5,6 +5,7 @@ import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Landing from '@/pages/Landing';
 import Pricing from '@/pages/Pricing';
+import Login from '@/pages/Login';
 import { Route, Routes } from 'react-router-dom';
 import Stock from '@/pages/Stock';
 import Ventes from '@/pages/Ventes';
@@ -17,6 +18,7 @@ const Index: React.FC = () => {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/*" element={
         <AppProvider>
           <Layout>
