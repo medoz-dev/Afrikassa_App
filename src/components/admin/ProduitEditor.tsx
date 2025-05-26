@@ -35,9 +35,15 @@ const ProduitEditor: React.FC = () => {
     specialUnit: 0
   });
 
+  // Fonction pour trier les boissons par ordre alphabétique
+  const sortBoissonsAlphabetically = (boissons: any[]) => {
+    return [...boissons].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  };
+
   useEffect(() => {
     console.log("Boissons chargées dans ProduitEditor:", boissons);
-    setEditableBoissons([...boissons]);
+    const sortedBoissons = sortBoissonsAlphabetically(boissons);
+    setEditableBoissons(sortedBoissons);
   }, [boissons]);
 
   const handleChange = (id: number, field: string, value: any) => {
@@ -62,12 +68,13 @@ const ProduitEditor: React.FC = () => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette boisson?")) {
       const boissonToDelete = editableBoissons.find(boisson => boisson.id === id);
       const updatedBoissons = editableBoissons.filter(boisson => boisson.id !== id);
-      setEditableBoissons(updatedBoissons);
+      const sortedBoissons = sortBoissonsAlphabetically(updatedBoissons);
+      setEditableBoissons(sortedBoissons);
       
       // Sauvegarder immédiatement après la suppression
       setTimeout(() => {
-        localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
-        updateBoissons(updatedBoissons);
+        localStorage.setItem('boissonsData', JSON.stringify(sortedBoissons));
+        updateBoissons(sortedBoissons);
         
         // Enregistrer la modification dans l'historique avec les détails du produit supprimé
         trackAdminChange(
@@ -111,12 +118,13 @@ const ProduitEditor: React.FC = () => {
     };
 
     const updatedBoissons = [...editableBoissons, boissonToAdd];
-    setEditableBoissons(updatedBoissons);
+    const sortedBoissons = sortBoissonsAlphabetically(updatedBoissons);
+    setEditableBoissons(sortedBoissons);
     
     // Sauvegarder immédiatement après l'ajout
     setTimeout(() => {
-      localStorage.setItem('boissonsData', JSON.stringify(updatedBoissons));
-      updateBoissons(updatedBoissons);
+      localStorage.setItem('boissonsData', JSON.stringify(sortedBoissons));
+      updateBoissons(sortedBoissons);
       
       // Enregistrer la modification dans l'historique avec les détails du produit ajouté
       trackAdminChange(
@@ -143,7 +151,7 @@ const ProduitEditor: React.FC = () => {
     
     toast({
       title: "Succès",
-      description: `La boisson ${boissonToAdd.nom} a été ajoutée avec succès.`,
+      description: `La boisson ${boissonToAdd.nom} a été ajoutée avec succès et classée par ordre alphabétique.`,
     });
   };
 
@@ -169,9 +177,13 @@ const ProduitEditor: React.FC = () => {
         );
       });
       
-      console.log("Sauvegarde des produits:", editableBoissons);
-      localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
-      updateBoissons(editableBoissons);
+      // Trier la liste par ordre alphabétique avant de sauvegarder
+      const sortedBoissons = sortBoissonsAlphabetically(editableBoissons);
+      setEditableBoissons(sortedBoissons);
+      
+      console.log("Sauvegarde des produits:", sortedBoissons);
+      localStorage.setItem('boissonsData', JSON.stringify(sortedBoissons));
+      updateBoissons(sortedBoissons);
       
       // Enregistrer la modification dans l'historique si des changements ont été effectués
       if (modifiedBoissons.length > 0) {
@@ -194,7 +206,7 @@ const ProduitEditor: React.FC = () => {
       
       toast({
         title: "Succès",
-        description: "Les produits ont été mis à jour avec succès.",
+        description: "Les produits ont été mis à jour avec succès et triés par ordre alphabétique.",
       });
       // Réinitialiser l'état d'édition
       setIsEditing({});
