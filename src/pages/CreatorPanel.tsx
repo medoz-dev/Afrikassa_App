@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Key, User, Database } from 'lucide-react';
+import { Trash2, Plus, Key, User, Database, Calendar } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -15,6 +16,8 @@ interface Client {
   username: string;
   password: string;
   dateCreation: string;
+  dateExpiration?: string;
+  dureeAbonnement: number; // en jours
   statut: 'actif' | 'inactif';
 }
 
@@ -24,7 +27,8 @@ const CreatorPanel: React.FC = () => {
     nom: '',
     email: '',
     username: '',
-    password: ''
+    password: '',
+    dureeAbonnement: 30
   });
 
   // Charger les clients depuis le localStorage
@@ -51,6 +55,13 @@ const CreatorPanel: React.FC = () => {
     setNouveauClient({ ...nouveauClient, password: motDePasse });
   };
 
+  // Calculer la date d'expiration
+  const calculerDateExpiration = (dureeJours: number) => {
+    const maintenant = new Date();
+    const dateExpiration = new Date(maintenant.getTime() + (dureeJours * 24 * 60 * 60 * 1000));
+    return dateExpiration.toISOString();
+  };
+
   // Ajouter un nouveau client
   const ajouterClient = () => {
     if (!nouveauClient.nom || !nouveauClient.email || !nouveauClient.username || !nouveauClient.password) {
@@ -73,21 +84,24 @@ const CreatorPanel: React.FC = () => {
       return;
     }
 
+    const dateExpiration = calculerDateExpiration(nouveauClient.dureeAbonnement);
+
     const client: Client = {
       id: Date.now().toString(),
       ...nouveauClient,
       dateCreation: new Date().toLocaleDateString('fr-FR'),
+      dateExpiration,
       statut: 'actif'
     };
 
     const nouveauxClients = [...clients, client];
     sauvegarderClients(nouveauxClients);
 
-    setNouveauClient({ nom: '', email: '', username: '', password: '' });
+    setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
 
     toast({
       title: "Client ajouté",
-      description: `Client ${client.nom} ajouté avec succès`,
+      description: `Client ${client.nom} ajouté avec un abonnement de ${client.dureeAbonnement} jours`,
     });
   };
 
@@ -96,9 +110,18 @@ const CreatorPanel: React.FC = () => {
     const nouveauxClients = clients.filter(client => client.id !== id);
     sauvegarderClients(nouveauxClients);
     
+    // Supprimer aussi la session si le client supprimé est connecté
+    const currentUser = localStorage.getItem('current_user');
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      if (user.id === id) {
+        localStorage.removeItem('current_user');
+      }
+    }
+    
     toast({
       title: "Client supprimé",
-      description: "Le client a été supprimé avec succès",
+      description: "Le client a été supprimé avec succès. Il sera automatiquement déconnecté.",
     });
   };
 
@@ -110,6 +133,48 @@ const CreatorPanel: React.FC = () => {
         : client
     );
     sauvegarderClients(nouveauxClients);
+
+    // Déconnecter le client s'il est désactivé et actuellement connecté
+    const clientModifie = nouveauxClients.find(c => c.id === id);
+    if (clientModifie?.statut === 'inactif') {
+      const currentUser = localStorage.getItem('current_user');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        if (user.id === id) {
+          localStorage.removeItem('current_user');
+        }
+      }
+    }
+  };
+
+  // Prolonger l'abonnement d'un client
+  const prolongerAbonnement = (id: string, nouveauxJours: number) => {
+    const nouveauxClients = clients.map(client => {
+      if (client.id === id) {
+        const nouvelleDateExpiration = calculerDateExpiration(nouveauxJours);
+        return { 
+          ...client, 
+          dureeAbonnement: nouveauxJours,
+          dateExpiration: nouvelleDateExpiration,
+          statut: 'actif' as 'actif' | 'inactif'
+        };
+      }
+      return client;
+    });
+    sauvegarderClients(nouveauxClients);
+
+    toast({
+      title: "Abonnement prolongé",
+      description: `L'abonnement a été prolongé de ${nouveauxJours} jours`,
+    });
+  };
+
+  // Calculer les jours restants
+  const calculerJoursRestants = (dateExpiration: string) => {
+    const maintenant = new Date();
+    const expiration = new Date(dateExpiration);
+    const joursRestants = Math.ceil((expiration.getTime() - maintenant.getTime()) / (1000 * 60 * 60 * 24));
+    return joursRestants;
   };
 
   return (
@@ -118,7 +183,7 @@ const CreatorPanel: React.FC = () => {
         <User className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients</p>
+          <p className="text-gray-600">Gestion des comptes clients avec contrôle des abonnements</p>
         </div>
       </div>
 
@@ -177,6 +242,25 @@ const CreatorPanel: React.FC = () => {
                 </Button>
               </div>
             </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="duree">Durée d'abonnement</Label>
+              <Select 
+                value={nouveauClient.dureeAbonnement.toString()} 
+                onValueChange={(value) => setNouveauClient({ ...nouveauClient, dureeAbonnement: parseInt(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner la durée" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 jours (essai)</SelectItem>
+                  <SelectItem value="30">30 jours (1 mois)</SelectItem>
+                  <SelectItem value="90">90 jours (3 mois)</SelectItem>
+                  <SelectItem value="180">180 jours (6 mois)</SelectItem>
+                  <SelectItem value="365">365 jours (1 an)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <Button onClick={ajouterClient} className="mt-4">
@@ -204,45 +288,86 @@ const CreatorPanel: React.FC = () => {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Nom d'utilisateur</TableHead>
-                    <TableHead>Mot de passe</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Password</TableHead>
                     <TableHead>Date création</TableHead>
+                    <TableHead>Abonnement</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.nom}</TableCell>
-                      <TableCell>{client.email}</TableCell>
-                      <TableCell>{client.username}</TableCell>
-                      <TableCell>
-                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                          {client.password}
-                        </code>
-                      </TableCell>
-                      <TableCell>{client.dateCreation}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant={client.statut === 'actif' ? 'default' : 'secondary'}
-                          size="sm"
-                          onClick={() => changerStatut(client.id)}
-                        >
-                          {client.statut}
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => supprimerClient(client.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {clients.map((client) => {
+                    const joursRestants = client.dateExpiration ? calculerJoursRestants(client.dateExpiration) : null;
+                    const isExpired = joursRestants !== null && joursRestants <= 0;
+                    const isExpiringSoon = joursRestants !== null && joursRestants > 0 && joursRestants <= 7;
+                    
+                    return (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">{client.nom}</TableCell>
+                        <TableCell>{client.email}</TableCell>
+                        <TableCell>{client.username}</TableCell>
+                        <TableCell>
+                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                            {client.password}
+                          </code>
+                        </TableCell>
+                        <TableCell>{client.dateCreation}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className={`text-sm ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
+                              {joursRestants !== null ? (
+                                isExpired ? '❌ Expiré' : 
+                                isExpiringSoon ? `⚠️ ${joursRestants} jour${joursRestants > 1 ? 's' : ''}` :
+                                `✅ ${joursRestants} jours`
+                              ) : 'Non défini'}
+                            </div>
+                            {client.dateExpiration && (
+                              <div className="text-xs text-gray-500">
+                                Jusqu'au {new Date(client.dateExpiration).toLocaleDateString('fr-FR')}
+                              </div>
+                            )}
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => prolongerAbonnement(client.id, 30)}
+                                className="text-xs"
+                              >
+                                +30j
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => prolongerAbonnement(client.id, 90)}
+                                className="text-xs"
+                              >
+                                +90j
+                              </Button>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant={client.statut === 'actif' ? 'default' : 'secondary'}
+                            size="sm"
+                            onClick={() => changerStatut(client.id)}
+                          >
+                            {client.statut}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => supprimerClient(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

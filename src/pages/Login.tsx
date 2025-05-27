@@ -38,11 +38,43 @@ const Login: React.FC = () => {
       const clients = JSON.parse(clientsStockes);
       const clientTrouve = clients.find((client: any) => 
         client.username === username && 
-        client.password === password && 
-        client.statut === 'actif'
+        client.password === password
       );
 
       if (clientTrouve) {
+        // Vérifier si le client est actif
+        if (clientTrouve.statut !== 'actif') {
+          toast({
+            title: "Accès suspendu",
+            description: "Votre compte a été désactivé. Contactez l'administrateur.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Vérifier si l'abonnement a expiré
+        if (clientTrouve.dateExpiration) {
+          const dateExpiration = new Date(clientTrouve.dateExpiration);
+          const maintenant = new Date();
+          
+          if (maintenant > dateExpiration) {
+            // Désactiver automatiquement le client expiré
+            const clientsMisAJour = clients.map((c: any) => 
+              c.id === clientTrouve.id ? { ...c, statut: 'inactif' } : c
+            );
+            localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
+            
+            toast({
+              title: "Abonnement expiré",
+              description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
+              variant: "destructive"
+            });
+            setIsLoading(false);
+            return;
+          }
+        }
+
         // Sauvegarder les infos du client connecté
         localStorage.setItem('current_user', JSON.stringify(clientTrouve));
         
