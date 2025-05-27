@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
@@ -7,7 +6,7 @@ import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
 import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -108,6 +107,15 @@ const Dashboard: React.FC = () => {
 
   const subscriptionStatus = getSubscriptionStatus();
 
+  const handleReactivateSubscription = () => {
+    const currentUser = localStorage.getItem('current_user');
+    if (!currentUser) return;
+
+    const user = JSON.parse(currentUser);
+    const message = `Bonjour, je souhaite réactiver mon abonnement AfriKassa.%0A%0ANom: ${user.nom}%0AUtilisateur: ${user.username}%0A%0AMerci de m'aider à renouveler mon accès.`;
+    window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -148,11 +156,25 @@ const Dashboard: React.FC = () => {
             )}
             <div className="flex-1">
               <AlertDescription className={`${subscriptionStatus.isExpiringSoon ? 'text-orange-800' : 'text-green-800'}`}>
-                <strong>Statut d'abonnement :</strong> 
-                {subscriptionStatus.isExpiringSoon 
-                  ? ` ⚠️ Expire dans ${subscriptionStatus.joursRestants} jour${subscriptionStatus.joursRestants > 1 ? 's' : ''} (${subscriptionStatus.dateExpiration})`
-                  : ` ✅ Actif jusqu'au ${subscriptionStatus.dateExpiration} (${subscriptionStatus.joursRestants} jours restants)`
-                }
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong>Statut d'abonnement :</strong> 
+                    {subscriptionStatus.isExpiringSoon 
+                      ? ` ⚠️ Expire dans ${subscriptionStatus.joursRestants} jour${subscriptionStatus.joursRestants > 1 ? 's' : ''} (${subscriptionStatus.dateExpiration})`
+                      : ` ✅ Actif jusqu'au ${subscriptionStatus.dateExpiration} (${subscriptionStatus.joursRestants} jours restants)`
+                    }
+                  </div>
+                  {subscriptionStatus.isExpiringSoon && (
+                    <Button 
+                      size="sm" 
+                      onClick={handleReactivateSubscription}
+                      className="ml-4 bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Réactiver
+                    </Button>
+                  )}
+                </div>
               </AlertDescription>
             </div>
           </div>
