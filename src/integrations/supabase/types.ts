@@ -9,13 +9,275 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      client_arrivage: {
+        Row: {
+          boisson_id: number
+          client_id: string
+          created_at: string
+          date_arrivage: string
+          id: string
+          quantite: number
+          type_trous: number
+          updated_at: string
+          valeur: number
+        }
+        Insert: {
+          boisson_id: number
+          client_id: string
+          created_at?: string
+          date_arrivage?: string
+          id?: string
+          quantite?: number
+          type_trous: number
+          updated_at?: string
+          valeur?: number
+        }
+        Update: {
+          boisson_id?: number
+          client_id?: string
+          created_at?: string
+          date_arrivage?: string
+          id?: string
+          quantite?: number
+          type_trous?: number
+          updated_at?: string
+          valeur?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_arrivage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_boissons: {
+        Row: {
+          boisson_id: number
+          client_id: string
+          created_at: string
+          id: string
+          nom: string
+          prix: number
+          special: boolean | null
+          special_price: number | null
+          special_unit: number | null
+          trous: Json
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          boisson_id: number
+          client_id: string
+          created_at?: string
+          id?: string
+          nom: string
+          prix: number
+          special?: boolean | null
+          special_price?: number | null
+          special_unit?: number | null
+          trous: Json
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          boisson_id?: number
+          client_id?: string
+          created_at?: string
+          id?: string
+          nom?: string
+          prix?: number
+          special?: boolean | null
+          special_price?: number | null
+          special_unit?: number | null
+          trous?: Json
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_boissons_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_calculs: {
+        Row: {
+          client_id: string
+          created_at: string
+          date_calcul: string
+          espece_gerant: number
+          id: string
+          somme_encaissee: number
+          stock_ancien: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          date_calcul?: string
+          espece_gerant?: number
+          id?: string
+          somme_encaissee?: number
+          stock_ancien?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          date_calcul?: string
+          espece_gerant?: number
+          id?: string
+          somme_encaissee?: number
+          stock_ancien?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_calculs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_depenses: {
+        Row: {
+          client_id: string
+          created_at: string
+          date_depense: string
+          id: string
+          montant: number
+          motif: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          date_depense?: string
+          id?: string
+          montant: number
+          motif: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          date_depense?: string
+          id?: string
+          montant?: number
+          motif?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_depenses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_stock: {
+        Row: {
+          boisson_id: number
+          client_id: string
+          created_at: string
+          date_stock: string
+          id: string
+          quantite: number
+          updated_at: string
+          valeur: number
+        }
+        Insert: {
+          boisson_id: number
+          client_id: string
+          created_at?: string
+          date_stock?: string
+          id?: string
+          quantite?: number
+          updated_at?: string
+          valeur?: number
+        }
+        Update: {
+          boisson_id?: number
+          client_id?: string
+          created_at?: string
+          date_stock?: string
+          id?: string
+          quantite?: number
+          updated_at?: string
+          valeur?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_stock_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          date_creation: string
+          date_expiration: string | null
+          email: string | null
+          id: string
+          nom: string
+          password_hash: string
+          role: string
+          statut: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          date_creation?: string
+          date_expiration?: string | null
+          email?: string | null
+          id?: string
+          nom: string
+          password_hash: string
+          role?: string
+          statut?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          date_creation?: string
+          date_expiration?: string | null
+          email?: string | null
+          id?: string
+          nom?: string
+          password_hash?: string
+          role?: string
+          statut?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      hash_password: {
+        Args: { password: string }
+        Returns: string
+      }
+      verify_password: {
+        Args: { password: string; hash: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

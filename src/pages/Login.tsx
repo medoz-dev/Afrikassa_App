@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Package, Eye, EyeOff, User } from 'lucide-react';
+import { login } from '@/services/authService';
+import { useAppContext } from '@/context/AppContext';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -12,99 +14,59 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Fonction pour déclencher l'événement storage personnalisé
-  const triggerClientDataLoad = (userId: string) => {
-    // Ce n'est pas un vrai événement storage mais une façon de forcer le rechargement des données
-    const clientDataEvent = new CustomEvent('clientUserChanged', { detail: { userId } });
-    window.dispatchEvent(clientDataEvent);
-  };
+  const { setCurrentUser } = useAppContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simuler un délai de connexion
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Vérification pour le créateur de l'app
-    if (password === 'meki') {
-      toast({
-        title: "Connexion créateur réussie",
-        description: "Bienvenue dans le panneau créateur !",
-      });
-      navigate('/creator-panel');
-      setIsLoading(false);
-      return;
-    }
-
-    // Vérification pour les clients
-    const clientsStockes = localStorage.getItem('clients_list');
-    if (clientsStockes) {
-      const clients = JSON.parse(clientsStockes);
-      const clientTrouve = clients.find((client: any) => 
-        client.username === username && 
-        client.password === password
-      );
-
-      if (clientTrouve) {
-        // Vérifier si le client est actif
-        if (clientTrouve.statut !== 'actif') {
-          toast({
-            title: "Accès suspendu",
-            description: "Votre compte a été désactivé. Contactez l'administrateur.",
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        // Vérifier si l'abonnement a expiré
-        if (clientTrouve.dateExpiration) {
-          const dateExpiration = new Date(clientTrouve.dateExpiration);
-          const maintenant = new Date();
-          
-          if (maintenant > dateExpiration) {
-            // Désactiver automatiquement le client expiré
-            const clientsMisAJour = clients.map((c: any) => 
-              c.id === clientTrouve.id ? { ...c, statut: 'inactif' } : c
-            );
-            localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
-            
-            toast({
-              title: "Abonnement expiré",
-              description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
-              variant: "destructive"
-            });
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Sauvegarder les infos du client connecté
-        localStorage.setItem('current_user', JSON.stringify(clientTrouve));
-        
-        // Déclencher le chargement des données spécifiques au client
-        triggerClientDataLoad(clientTrouve.id);
-        
+    try {
+      // Vérification pour le créateur de l'app (mode local)
+      if (password === 'meki') {
         toast({
-          title: "Connexion réussie",
-          description: `Bienvenue ${clientTrouve.nom} !`,
+          title: "Connexion créateur réussie",
+          description: "Bienvenue dans le panneau créateur !",
         });
-        navigate('/dashboard');
+        navigate('/creator-panel');
         setIsLoading(false);
         return;
       }
+
+      // Connexion via Supabase
+      const user = await login(username, password);
+      
+      if (user) {
+        setCurrentUser(user);
+        
+        toast({
+          title: "Connexion réussie",
+          description: `Bienvenue ${user.nom} !`,
+        });
+
+        // Rediriger selon le rôle
+        if (user.role === 'admin') {
+          navigate('/creator-panel');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    } catch (error: any) {
+      let errorMessage = "Identifiants invalides ou compte inactif";
+      
+      if (error.message === 'Compte inactif') {
+        errorMessage = "Votre compte a été désactivé. Contactez l'administrateur.";
+      } else if (error.message === 'Abonnement expiré') {
+        errorMessage = "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.";
+      }
+
+      toast({
+        title: "Échec de la connexion",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    // Si aucune correspondance trouvée
-    toast({
-      title: "Échec de la connexion",
-      description: "Identifiants invalides ou compte inactif. Contactez-nous pour obtenir votre accès.",
-      variant: "destructive"
-    });
-
-    setIsLoading(false);
   };
 
   const handleWhatsAppContact = () => {

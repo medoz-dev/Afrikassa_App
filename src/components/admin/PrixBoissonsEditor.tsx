@@ -19,31 +19,13 @@ interface BoissonEditableProps {
   specialUnit?: number;
 }
 
-// Fonction pour obtenir l'ID du client actuel
-const getCurrentUserId = (): string => {
-  const currentUser = localStorage.getItem('current_user');
-  if (currentUser) {
-    const user = JSON.parse(currentUser);
-    return user.id || 'default';
-  }
-  return 'default';
-};
-
-// Fonction pour sauvegarder les données spécifiques au client
-const saveClientSpecificData = (key: string, data: any) => {
-  const userId = getCurrentUserId();
-  const clientKey = `${key}_client_${userId}`;
-  localStorage.setItem(clientKey, JSON.stringify(data));
-};
-
 const PrixBoissonsEditor: React.FC = () => {
-  const { boissons, updateBoissons } = useAppContext();
+  const { boissons, updateBoissons, currentUser } = useAppContext();
   const [editableBoissons, setEditableBoissons] = useState<BoissonEditableProps[]>([]);
   const [isEditing, setIsEditing] = useState<{ [key: number]: boolean }>({});
   const [originalBoissons, setOriginalBoissons] = useState<BoissonEditableProps[]>([]);
 
   useEffect(() => {
-    // Récupérer les boissons du contexte (déjà spécifiques au client)
     console.log("Boissons chargées dans PrixBoissonsEditor:", boissons);
     setEditableBoissons([...boissons]);
     setOriginalBoissons([...boissons]);
@@ -78,13 +60,21 @@ const PrixBoissonsEditor: React.FC = () => {
     }));
   };
 
-  const saveChanges = () => {
+  const saveChanges = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour sauvegarder",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       console.log("Sauvegarde des boissons pour le client:", editableBoissons);
       
-      // Sauvegarder spécifiquement pour ce client
-      saveClientSpecificData('boissonsData', editableBoissons);
-      updateBoissons(editableBoissons);
+      // Sauvegarder via le contexte (qui utilise Supabase)
+      await updateBoissons(editableBoissons);
       
       // Enregistrer la modification dans l'historique
       const modifiedBoissons = editableBoissons.filter((boisson, index) => {
@@ -94,7 +84,6 @@ const PrixBoissonsEditor: React.FC = () => {
       });
       
       if (modifiedBoissons.length > 0) {
-        // Créer des objets avant/après pour l'historique
         const beforeData: Record<string, any> = {};
         const afterData: Record<string, any> = {};
         
@@ -121,8 +110,9 @@ const PrixBoissonsEditor: React.FC = () => {
       
       toast({
         title: "Succès",
-        description: "Les prix des boissons ont été mis à jour avec succès pour votre compte.",
+        description: "Les prix des boissons ont été mis à jour avec succès.",
       });
+      
       // Réinitialiser l'état d'édition
       setIsEditing({});
     } catch (error) {
@@ -134,6 +124,14 @@ const PrixBoissonsEditor: React.FC = () => {
       });
     }
   };
+
+  if (!currentUser) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-gray-500">Veuillez vous connecter pour modifier les prix</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
