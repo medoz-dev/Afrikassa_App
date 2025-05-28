@@ -1,147 +1,161 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { History, Search } from 'lucide-react';
+import { format } from 'date-fns';
 
-interface Vente {
-  id: string;
-  produit: string;
-  quantite: number;
-  prix_unitaire: number;
-  total: number;
+interface HistoriqueItem {
   date: string;
+  vente: number;
+  sommeEncaissee: number;
+  reste: number;
 }
 
 const HistoriqueVentes: React.FC = () => {
-  const [ventes, setVentes] = useState<Vente[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [newVente, setNewVente] = useState({
-    produit: '',
-    quantite: 0,
-    prix_unitaire: 0,
-  });
+  const [historiqueVentes, setHistoriqueVentes] = useState<HistoriqueItem[]>([]);
+  const [filteredHistorique, setFilteredHistorique] = useState<HistoriqueItem[]>([]);
+  const [dateDebut, setDateDebut] = useState<string>('');
+  const [dateFin, setDateFin] = useState<string>('');
 
-  const handleAddVente = () => {
-    if (!newVente.produit.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Le nom du produit est requis",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const vente: Vente = {
-      id: Date.now().toString(),
-      produit: newVente.produit,
-      quantite: newVente.quantite,
-      prix_unitaire: newVente.prix_unitaire,
-      total: newVente.quantite * newVente.prix_unitaire,
-      date: new Date().toLocaleDateString('fr-FR'),
+  useEffect(() => {
+    // Récupérer l'historique des ventes depuis localStorage
+    const loadHistorique = () => {
+      try {
+        const historicalData = localStorage.getItem('historicalResults');
+        
+        if (historicalData) {
+          const history = JSON.parse(historicalData);
+          
+          // Transformer les données pour notre affichage
+          const venteHistory: HistoriqueItem[] = history.map((item: any) => ({
+            date: item.date,
+            vente: item.vente || 0,
+            sommeEncaissee: item.sommeEncaissee || 0,
+            reste: item.reste || 0,
+          }));
+          
+          // Trier par date (plus récent en premier)
+          venteHistory.sort((a: HistoriqueItem, b: HistoriqueItem) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          
+          setHistoriqueVentes(venteHistory);
+          setFilteredHistorique(venteHistory);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement de l'historique des ventes:", error);
+      }
     };
 
-    setVentes([...ventes, vente]);
-    setNewVente({ produit: '', quantite: 0, prix_unitaire: 0 });
-    setShowForm(false);
+    loadHistorique();
+  }, []);
+
+  const handleFilter = () => {
+    let filtered = [...historiqueVentes];
     
-    toast({
-      title: "Succès",
-      description: "Vente ajoutée avec succès"
-    });
+    if (dateDebut) {
+      filtered = filtered.filter(item => item.date >= dateDebut);
+    }
+    
+    if (dateFin) {
+      filtered = filtered.filter(item => item.date <= dateFin);
+    }
+    
+    setFilteredHistorique(filtered);
   };
 
-  const handleDeleteVente = (id: string) => {
-    setVentes(ventes.filter(v => v.id !== id));
-    toast({
-      title: "Supprimé",
-      description: "Vente supprimée avec succès"
-    });
+  const resetFilter = () => {
+    setDateDebut('');
+    setDateFin('');
+    setFilteredHistorique(historiqueVentes);
   };
 
-  const totalVentes = ventes.reduce((sum, vente) => sum + vente.total, 0);
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'dd/MM/yyyy');
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center">
+          <History size={20} className="mr-2" />
           Historique des Ventes
-          <Button onClick={() => setShowForm(!showForm)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle Vente
-          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {showForm && (
-          <div className="mb-6 p-4 border rounded-lg space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                placeholder="Nom du produit"
-                value={newVente.produit}
-                onChange={(e) => setNewVente({ ...newVente, produit: e.target.value })}
-              />
-              <Input
-                type="number"
-                placeholder="Quantité"
-                value={newVente.quantite}
-                onChange={(e) => setNewVente({ ...newVente, quantite: Number(e.target.value) })}
-              />
-              <Input
-                type="number"
-                placeholder="Prix unitaire"
-                value={newVente.prix_unitaire}
-                onChange={(e) => setNewVente({ ...newVente, prix_unitaire: Number(e.target.value) })}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label htmlFor="dateDebut" className="block text-sm font-medium mb-1">
+                Date de début:
+              </label>
+              <Input 
+                type="date" 
+                id="dateDebut"
+                value={dateDebut} 
+                onChange={(e) => setDateDebut(e.target.value)} 
               />
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleAddVente}>Ajouter</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
+            <div className="flex-1">
+              <label htmlFor="dateFin" className="block text-sm font-medium mb-1">
+                Date de fin:
+              </label>
+              <Input 
+                type="date" 
+                id="dateFin"
+                value={dateFin} 
+                onChange={(e) => setDateFin(e.target.value)} 
+              />
             </div>
           </div>
-        )}
-
-        <div className="mb-4">
-          <div className="text-lg font-semibold">
-            Total des Ventes: {totalVentes.toLocaleString()} FCFA
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleFilter} className="flex-1">
+              <Search size={16} className="mr-2" />
+              Filtrer
+            </Button>
+            <Button variant="outline" onClick={resetFilter} className="flex-1">
+              Réinitialiser
+            </Button>
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Produit</TableHead>
-              <TableHead>Quantité</TableHead>
-              <TableHead>Prix Unitaire</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ventes.map((vente) => (
-              <TableRow key={vente.id}>
-                <TableCell>{vente.date}</TableCell>
-                <TableCell>{vente.produit}</TableCell>
-                <TableCell>{vente.quantite}</TableCell>
-                <TableCell>{vente.prix_unitaire} FCFA</TableCell>
-                <TableCell>{vente.total} FCFA</TableCell>
-                <TableCell>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteVente(vente.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {filteredHistorique.length > 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Vente Théorique</TableHead>
+                  <TableHead>Somme Encaissée</TableHead>
+                  <TableHead>Reste</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredHistorique.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{formatDate(item.date)}</TableCell>
+                    <TableCell>{item.vente.toLocaleString()} FCFA</TableCell>
+                    <TableCell>{item.sommeEncaissee.toLocaleString()} FCFA</TableCell>
+                    <TableCell className={item.reste > 0 ? 'text-red-500' : 'text-green-500'}>
+                      {item.reste.toLocaleString()} FCFA
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Aucun historique de vente disponible pour la période sélectionnée.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

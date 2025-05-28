@@ -1,73 +1,100 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getStock, StockItem } from '@/services/stockService';
+import React from 'react';
 import { useAppContext } from '@/context/AppContext';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 const StockTable: React.FC = () => {
-  const [stock, setStock] = useState<StockItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { boissons } = useAppContext();
+  const { 
+    boissons, 
+    stockItems, 
+    updateStockItem, 
+    stockTotal, 
+    stockDate, 
+    setStockDate,
+    saveStockData
+  } = useAppContext();
 
-  useEffect(() => {
-    const loadStock = async () => {
-      try {
-        const data = await getStock();
-        setStock(data);
-      } catch (error) {
-        console.error('Erreur chargement stock:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStock();
-  }, []);
-
-  // Fonction pour obtenir le nom de la boisson à partir de l'ID
-  const getBoissonName = (boissonId: number) => {
-    const boisson = boissons.find(b => b.id === boissonId);
-    return boisson ? boisson.nom : `Boisson ${boissonId}`;
+  const handleQuantityChange = (boissonId: number, value: string) => {
+    const quantity = parseFloat(value) || 0;
+    updateStockItem(boissonId, quantity);
   };
 
-  if (loading) {
-    return <div>Chargement...</div>;
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>État du Stock</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Produit</TableHead>
-              <TableHead>Quantité</TableHead>
-              <TableHead>Valeur</TableHead>
-              <TableHead>Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stock.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{getBoissonName(item.boisson_id)}</TableCell>
-                <TableCell>{item.quantite}</TableCell>
-                <TableCell>{item.valeur} FCFA</TableCell>
-                <TableCell>{new Date(item.date_stock).toLocaleDateString()}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {stock.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            Aucun stock disponible
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Calcul du Stock Restant</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="info-box mb-4">
+            <p>Veuillez entrer le nombre de boissons restantes en stock pour chaque type. Le système calculera automatiquement la valeur totale du stock.</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          
+          <div className="mb-6">
+            <label htmlFor="stockDate" className="block text-sm font-medium mb-1">Date d'inventaire:</label>
+            <Input
+              type="date"
+              id="stockDate"
+              value={stockDate}
+              onChange={(e) => setStockDate(e.target.value)}
+              className="max-w-xs"
+            />
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-primary text-white">
+                  <th className="p-2 text-left">Boisson</th>
+                  <th className="p-2 text-left">Prix Unitaire</th>
+                  <th className="p-2 text-left">Nombre</th>
+                  <th className="p-2 text-left">Valeur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {boissons.map((boisson) => {
+                  const stockItem = stockItems.find(item => item.boissonId === boisson.id);
+                  return (
+                    <tr key={boisson.id} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="p-2">{boisson.nom}</td>
+                      <td className="p-2">
+                        {boisson.special && boisson.specialPrice && boisson.specialUnit ? 
+                          `${boisson.specialPrice} FCFA/${boisson.specialUnit} unités` : 
+                          `${boisson.prix} FCFA`}
+                      </td>
+                      <td className="p-2 w-32">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={stockItem?.quantite || 0}
+                          onChange={(e) => handleQuantityChange(boisson.id, e.target.value)}
+                          className="w-full"
+                        />
+                      </td>
+                      <td className="p-2 font-medium">{stockItem?.valeur.toLocaleString()} FCFA</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50">
+                  <td colSpan={3} className="p-2 font-bold">Total</td>
+                  <td className="p-2 font-bold">{stockTotal.toLocaleString()} FCFA</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          
+          <div className="mt-6">
+            <Button onClick={saveStockData} className="bg-green-600 hover:bg-green-700">
+              Enregistrer le Stock Restant
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
