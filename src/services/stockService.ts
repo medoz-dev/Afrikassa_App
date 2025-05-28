@@ -3,18 +3,29 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface StockItem {
   id: string;
-  nom: string;
+  boisson_id: number;
   quantite: number;
-  prix_unitaire: number;
-  seuil_alerte: number;
+  valeur: number;
+  date_stock: string;
+  client_id: string;
+}
+
+export interface ArrivageItem {
+  id: string;
+  boisson_id: number;
+  quantite: number;
+  valeur: number;
+  type_trous: number;
+  date_arrivage: string;
+  client_id: string;
 }
 
 export const getStock = async (): Promise<StockItem[]> => {
   try {
     const { data, error } = await supabase
-      .from('stock')
+      .from('client_stock')
       .select('*')
-      .order('nom');
+      .order('date_stock', { ascending: false });
 
     if (error) {
       throw error;
@@ -27,15 +38,26 @@ export const getStock = async (): Promise<StockItem[]> => {
   }
 };
 
-export const addArrivage = async (item: { nom: string; quantite: number; prix_unitaire: number }) => {
+export const addArrivage = async (item: { boisson_id: number; quantite: number; valeur: number; type_trous: number }) => {
   try {
+    // Récupérer l'ID du client actuel depuis le localStorage
+    const currentUser = localStorage.getItem('current_user');
+    let clientId = 'default';
+    
+    if (currentUser) {
+      const user = JSON.parse(currentUser);
+      clientId = user.id || 'default';
+    }
+
     const { error } = await supabase
-      .from('stock')
+      .from('client_arrivage')
       .insert([{
-        nom: item.nom,
+        boisson_id: item.boisson_id,
         quantite: item.quantite,
-        prix_unitaire: item.prix_unitaire,
-        seuil_alerte: 10, // Valeur par défaut
+        valeur: item.valeur,
+        type_trous: item.type_trous,
+        client_id: clientId,
+        date_arrivage: new Date().toISOString().split('T')[0]
       }]);
 
     if (error) {
@@ -52,7 +74,7 @@ export const addArrivage = async (item: { nom: string; quantite: number; prix_un
 export const updateStock = async (id: string, updates: Partial<StockItem>) => {
   try {
     const { error } = await supabase
-      .from('stock')
+      .from('client_stock')
       .update(updates)
       .eq('id', id);
 
