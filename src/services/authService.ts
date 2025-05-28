@@ -14,27 +14,21 @@ export interface User {
 // Configuration de l'ID utilisateur pour RLS via Edge Function
 const setCurrentUserId = async (userId: string) => {
   try {
-    const response = await fetch('/functions/v1/set-config', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabase.supabaseKey}`
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke('set-config', {
+      body: {
         setting_name: 'app.current_user_id',
         setting_value: userId,
         is_local: false
-      })
+      }
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to set user context');
+    if (error) {
+      throw error;
     }
     
-    return await response.json();
+    return data;
   } catch (error) {
     console.error('Erreur configuration utilisateur:', error);
-    // Fallback: utiliser une méthode alternative si disponible
     return null;
   }
 };
