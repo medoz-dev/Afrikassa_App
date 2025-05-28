@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,13 +13,6 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Fonction pour déclencher l'événement storage personnalisé
-  const triggerClientDataLoad = (userId: string) => {
-    // Ce n'est pas un vrai événement storage mais une façon de forcer le rechargement des données
-    const clientDataEvent = new CustomEvent('clientUserChanged', { detail: { userId } });
-    window.dispatchEvent(clientDataEvent);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +77,6 @@ const Login: React.FC = () => {
 
         // Sauvegarder les infos du client connecté
         localStorage.setItem('current_user', JSON.stringify(clientTrouve));
-        
-        // Déclencher le chargement des données spécifiques au client
-        triggerClientDataLoad(clientTrouve.id);
         
         toast({
           title: "Connexion réussie",

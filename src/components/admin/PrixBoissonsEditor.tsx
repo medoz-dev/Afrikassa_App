@@ -19,23 +19,6 @@ interface BoissonEditableProps {
   specialUnit?: number;
 }
 
-// Fonction pour obtenir l'ID du client actuel
-const getCurrentUserId = (): string => {
-  const currentUser = localStorage.getItem('current_user');
-  if (currentUser) {
-    const user = JSON.parse(currentUser);
-    return user.id || 'default';
-  }
-  return 'default';
-};
-
-// Fonction pour sauvegarder les données spécifiques au client
-const saveClientSpecificData = (key: string, data: any) => {
-  const userId = getCurrentUserId();
-  const clientKey = `${key}_client_${userId}`;
-  localStorage.setItem(clientKey, JSON.stringify(data));
-};
-
 const PrixBoissonsEditor: React.FC = () => {
   const { boissons, updateBoissons } = useAppContext();
   const [editableBoissons, setEditableBoissons] = useState<BoissonEditableProps[]>([]);
@@ -43,7 +26,7 @@ const PrixBoissonsEditor: React.FC = () => {
   const [originalBoissons, setOriginalBoissons] = useState<BoissonEditableProps[]>([]);
 
   useEffect(() => {
-    // Récupérer les boissons du contexte (déjà spécifiques au client)
+    // Récupérer les boissons du contexte
     console.log("Boissons chargées dans PrixBoissonsEditor:", boissons);
     setEditableBoissons([...boissons]);
     setOriginalBoissons([...boissons]);
@@ -80,10 +63,8 @@ const PrixBoissonsEditor: React.FC = () => {
 
   const saveChanges = () => {
     try {
-      console.log("Sauvegarde des boissons pour le client:", editableBoissons);
-      
-      // Sauvegarder spécifiquement pour ce client
-      saveClientSpecificData('boissonsData', editableBoissons);
+      console.log("Sauvegarde des boissons:", editableBoissons);
+      localStorage.setItem('boissonsData', JSON.stringify(editableBoissons));
       updateBoissons(editableBoissons);
       
       // Enregistrer la modification dans l'historique
@@ -121,7 +102,7 @@ const PrixBoissonsEditor: React.FC = () => {
       
       toast({
         title: "Succès",
-        description: "Les prix des boissons ont été mis à jour avec succès pour votre compte.",
+        description: "Les prix des boissons ont été mis à jour avec succès.",
       });
       // Réinitialiser l'état d'édition
       setIsEditing({});
