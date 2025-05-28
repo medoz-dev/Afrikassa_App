@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,45 +12,88 @@ import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { authService, User } from '@/services/authService';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { 
     stockTotal, 
     arrivageTotal, 
     venteTheorique 
   } = useAppContext();
 
-  // Vérifier la session utilisateur à chaque chargement
+  // Vérifier l'état du client à chaque chargement du dashboard
   useEffect(() => {
-    const validateUserSession = async () => {
-      const sessionResult = await authService.validateSession();
+    const currentUser = localStorage.getItem('current_user');
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    const user = JSON.parse(currentUser);
+    const clientsStockes = localStorage.getItem('clients_list');
+    
+    if (clientsStockes) {
+      const clients = JSON.parse(clientsStockes);
+      const clientActuel = clients.find((client: any) => client.id === user.id);
       
-      if (!sessionResult.valid || !sessionResult.user) {
+      if (!clientActuel) {
+        // Client supprimé
+        localStorage.removeItem('current_user');
         toast({
-          title: "Session expirée",
-          description: "Veuillez vous reconnecter.",
+          title: "Compte supprimé",
+          description: "Votre compte a été supprimé par l'administrateur.",
           variant: "destructive"
         });
         navigate('/login');
         return;
       }
 
-      setCurrentUser(sessionResult.user);
-      // Maintenir la compatibilité avec l'ancien système
-      localStorage.setItem('current_user', JSON.stringify(sessionResult.user));
-    };
+      if (clientActuel.statut !== 'actif') {
+        // Client désactivé
+        localStorage.removeItem('current_user');
+        toast({
+          title: "Compte désactivé",
+          description: "Votre compte a été désactivé par l'administrateur.",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
 
-    validateUserSession();
+      // Vérifier l'expiration
+      if (clientActuel.dateExpiration) {
+        const dateExpiration = new Date(clientActuel.dateExpiration);
+        const maintenant = new Date();
+        
+        if (maintenant > dateExpiration) {
+          // Abonnement expiré
+          localStorage.removeItem('current_user');
+          toast({
+            title: "Abonnement expiré",
+            description: "Votre abonnement a expiré. Contactez l'administrateur.",
+            variant: "destructive"
+          });
+          navigate('/login');
+          return;
+        }
+      }
+
+      // Mettre à jour les données utilisateur si nécessaire
+      if (JSON.stringify(user) !== JSON.stringify(clientActuel)) {
+        localStorage.setItem('current_user', JSON.stringify(clientActuel));
+      }
+    }
   }, [navigate]);
 
   // Calculer les jours restants d'abonnement
   const getSubscriptionStatus = () => {
-    if (!currentUser?.date_expiration) return null;
+    const currentUser = localStorage.getItem('current_user');
+    if (!currentUser) return null;
 
-    const dateExpiration = new Date(currentUser.date_expiration);
+    const user = JSON.parse(currentUser);
+    if (!user.dateExpiration) return null;
+
+    const dateExpiration = new Date(user.dateExpiration);
     const maintenant = new Date();
     const joursRestants = Math.ceil((dateExpiration.getTime() - maintenant.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -66,71 +108,41 @@ const Dashboard: React.FC = () => {
   const subscriptionStatus = getSubscriptionStatus();
 
   const handleReactivateSubscription = () => {
+    const currentUser = localStorage.getItem('current_user');
     if (!currentUser) return;
 
-    const message = `Bonjour, je souhaite réactiver mon abonnement AfriKassa.%0A%0ANom: ${currentUser.nom}%0AUtilisateur: ${currentUser.username}%0A%0AMerci de m'aider à renouveler mon accès.`;
+    const user = JSON.parse(currentUser);
+    const message = `Bonjour, je souhaite réactiver mon abonnement AfriKassa.%0A%0ANom: ${user.nom}%0AUtilisateur: ${user.username}%0A%0AMerci de m'aider à renouveler mon accès.`;
     window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
   };
-
-  const handleLogout = async () => {
-    await authService.logout();
-    toast({
-      title: "Déconnexion réussie",
-      description: "Vous avez été déconnecté avec succès.",
-    });
-    navigate('/login');
-  };
-
-  if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Vérification de la session...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Tableau de Bord</h1>
-          <p className="text-sm text-gray-600">
-            Connecté en tant que: <span className="font-medium">{currentUser.nom}</span>
-            {currentUser.role === 'admin' && <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Administrateur</span>}
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">Tableau de Bord</h1>
         
-        <div className="flex gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button 
-                className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
-              >
-                <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
-                <Brain className="mr-2 h-5 w-5 animate-pulse" />
-                Calcul Intelligent
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[800px]">
-              <DialogHeader>
-                <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-                  Analyse Automatique par Intelligence Artificielle
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
-                </DialogDescription>
-              </DialogHeader>
-              <AICalculation />
-            </DialogContent>
-          </Dialog>
-          
-          <Button variant="outline" onClick={handleLogout}>
-            Déconnexion
-          </Button>
-        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button 
+              className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
+            >
+              <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
+              <Brain className="mr-2 h-5 w-5 animate-pulse" />
+              Calcul Intelligent
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                Analyse Automatique par Intelligence Artificielle
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
+              </DialogDescription>
+            </DialogHeader>
+            <AICalculation />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Affichage du statut d'abonnement */}

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Package, Eye, EyeOff, User } from 'lucide-react';
-import { authService } from '@/services/authService';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -15,51 +13,98 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Fonction pour déclencher l'événement storage personnalisé
+  const triggerClientDataLoad = (userId: string) => {
+    // Ce n'est pas un vrai événement storage mais une façon de forcer le rechargement des données
+    const clientDataEvent = new CustomEvent('clientUserChanged', { detail: { userId } });
+    window.dispatchEvent(clientDataEvent);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      // Vérification pour le créateur de l'app
-      if (await authService.checkCreatorAccess(password)) {
-        toast({
-          title: "Connexion créateur réussie",
-          description: "Bienvenue dans le panneau créateur !",
-        });
-        navigate('/creator-panel');
-        setIsLoading(false);
-        return;
-      }
+    // Simuler un délai de connexion
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Connexion via le service d'authentification centralisé
-      const loginResult = await authService.login(username, password);
+    // Vérification pour le créateur de l'app
+    if (password === 'meki') {
+      toast({
+        title: "Connexion créateur réussie",
+        description: "Bienvenue dans le panneau créateur !",
+      });
+      navigate('/creator-panel');
+      setIsLoading(false);
+      return;
+    }
 
-      if (loginResult.success && loginResult.user) {
-        // Sauvegarder les infos utilisateur pour compatibilité
-        localStorage.setItem('current_user', JSON.stringify(loginResult.user));
+    // Vérification pour les clients
+    const clientsStockes = localStorage.getItem('clients_list');
+    if (clientsStockes) {
+      const clients = JSON.parse(clientsStockes);
+      const clientTrouve = clients.find((client: any) => 
+        client.username === username && 
+        client.password === password
+      );
+
+      if (clientTrouve) {
+        // Vérifier si le client est actif
+        if (clientTrouve.statut !== 'actif') {
+          toast({
+            title: "Accès suspendu",
+            description: "Votre compte a été désactivé. Contactez l'administrateur.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Vérifier si l'abonnement a expiré
+        if (clientTrouve.dateExpiration) {
+          const dateExpiration = new Date(clientTrouve.dateExpiration);
+          const maintenant = new Date();
+          
+          if (maintenant > dateExpiration) {
+            // Désactiver automatiquement le client expiré
+            const clientsMisAJour = clients.map((c: any) => 
+              c.id === clientTrouve.id ? { ...c, statut: 'inactif' } : c
+            );
+            localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
+            
+            toast({
+              title: "Abonnement expiré",
+              description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
+              variant: "destructive"
+            });
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Sauvegarder les infos du client connecté
+        localStorage.setItem('current_user', JSON.stringify(clientTrouve));
+        
+        // Déclencher le chargement des données spécifiques au client
+        triggerClientDataLoad(clientTrouve.id);
         
         toast({
           title: "Connexion réussie",
-          description: `Bienvenue ${loginResult.user.nom} !`,
+          description: `Bienvenue ${clientTrouve.nom} !`,
         });
         navigate('/dashboard');
-      } else {
-        toast({
-          title: "Échec de la connexion",
-          description: loginResult.message || "Identifiants invalides ou compte inactif.",
-          variant: "destructive"
-        });
+        setIsLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error('Erreur de connexion:', error);
-      toast({
-        title: "Erreur de connexion",
-        description: "Une erreur est survenue lors de la connexion.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
     }
+
+    // Si aucune correspondance trouvée
+    toast({
+      title: "Échec de la connexion",
+      description: "Identifiants invalides ou compte inactif. Contactez-nous pour obtenir votre accès.",
+      variant: "destructive"
+    });
+
+    setIsLoading(false);
   };
 
   const handleWhatsAppContact = () => {
@@ -90,7 +135,7 @@ const Login: React.FC = () => {
               Connexion à AfriKassa
             </CardTitle>
             <CardDescription className="text-white/90">
-              Accédez à votre système de gestion depuis n'importe quel appareil
+              Accédez à votre système de gestion
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
@@ -169,10 +214,10 @@ const Login: React.FC = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Système centralisé - Connectez-vous depuis n'importe quel appareil
+            Pour obtenir vos identifiants, contactez-nous via WhatsApp
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Support: +229 61 17 00 17
+            +229 61 17 00 17
           </p>
         </div>
       </div>
