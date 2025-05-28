@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { boissons as defaultBoissons } from '@/data/boissons';
@@ -94,31 +95,6 @@ interface AppProviderProps {
   children: ReactNode;
 }
 
-// Fonction pour obtenir l'ID du client actuel
-const getCurrentUserId = (): string => {
-  const currentUser = localStorage.getItem('current_user');
-  if (currentUser) {
-    const user = JSON.parse(currentUser);
-    return user.id || 'default';
-  }
-  return 'default';
-};
-
-// Fonction pour obtenir les données spécifiques au client
-const getClientSpecificData = (key: string, defaultValue: any = null) => {
-  const userId = getCurrentUserId();
-  const clientKey = `${key}_client_${userId}`;
-  const data = localStorage.getItem(clientKey);
-  return data ? JSON.parse(data) : defaultValue;
-};
-
-// Fonction pour sauvegarder les données spécifiques au client
-const saveClientSpecificData = (key: string, data: any) => {
-  const userId = getCurrentUserId();
-  const clientKey = `${key}_client_${userId}`;
-  localStorage.setItem(clientKey, JSON.stringify(data));
-};
-
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Initialisation des états
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -132,12 +108,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [resultatFinal, setResultatFinal] = useState<number>(0);
   const [boissons, setBoissons] = useState<Boisson[]>(defaultBoissons);
 
-  // Fonction pour mettre à jour les boissons spécifiques au client
+  // Fonction pour mettre à jour les boissons
   const updateBoissons = (newBoissons: Boisson[]) => {
     setBoissons(newBoissons);
-    
-    // Sauvegarder les boissons spécifiques au client
-    saveClientSpecificData('boissonsData', newBoissons);
     
     // Réinitialiser les items de stock et d'arrivage avec les nouveaux IDs
     const initialStockItems = newBoissons.map((boisson) => ({
@@ -157,87 +130,57 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setArrivageItems(initialArrivageItems);
   };
 
-  // Initialiser les données spécifiques au client
+  // Initialiser les données des boissons
   useEffect(() => {
-    const initializeClientData = () => {
-      // Charger les boissons spécifiques au client
-      const clientBoissons = getClientSpecificData('boissonsData', defaultBoissons);
-      setBoissons(clientBoissons);
-
-      // Initialiser les items de stock
-      const initialStockItems = clientBoissons.map((boisson: Boisson) => ({
-        boissonId: boisson.id,
-        quantite: 0,
-        valeur: 0,
-      }));
-      setStockItems(initialStockItems);
-
-      // Initialiser les items d'arrivage
-      const initialArrivageItems = clientBoissons.map((boisson: Boisson) => ({
-        boissonId: boisson.id,
-        quantite: 0,
-        typeTrous: Array.isArray(boisson.trous) ? boisson.trous[0] : boisson.trous,
-        valeur: 0,
-      }));
-      setArrivageItems(initialArrivageItems);
-
-      // Charger les données du client depuis le localStorage
-      const loadClientData = () => {
-        try {
-          // Charger le stock précédent du client
-          const previousStock = getClientSpecificData('stockData');
-          if (previousStock) {
-            setStockAncien(previousStock.total || 0);
-          }
-
-          // Charger les autres données spécifiques au client
-          const clientDepenses = getClientSpecificData('depenses', []);
-          setDepenses(clientDepenses);
-
-          const clientSommeEncaissee = getClientSpecificData('sommeEncaissee', 0);
-          setSommeEncaissee(clientSommeEncaissee);
-
-          const clientEspeceGerant = getClientSpecificData('especeGerant', 0);
-          setEspeceGerant(clientEspeceGerant);
-
-        } catch (error) {
-          console.error("Erreur lors du chargement des données du client:", error);
-        }
-      };
-
-      loadClientData();
-    };
-
-    // Attendre que l'utilisateur soit connecté
-    const currentUser = localStorage.getItem('current_user');
-    if (currentUser) {
-      initializeClientData();
+    // Charger les boissons depuis localStorage (si disponible)
+    const storedBoissons = localStorage.getItem('boissonsData');
+    if (storedBoissons) {
+      setBoissons(JSON.parse(storedBoissons));
+    } else {
+      setBoissons(defaultBoissons);
     }
-  }, []);
 
-  // Écouter les changements d'utilisateur
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const currentUser = localStorage.getItem('current_user');
-      if (currentUser) {
-        // Recharger les données du nouveau client
-        const clientBoissons = getClientSpecificData('boissonsData', defaultBoissons);
-        setBoissons(clientBoissons);
-        
-        // Réinitialiser les autres données
-        const clientDepenses = getClientSpecificData('depenses', []);
-        setDepenses(clientDepenses);
-        
-        const clientSommeEncaissee = getClientSpecificData('sommeEncaissee', 0);
-        setSommeEncaissee(clientSommeEncaissee);
-        
-        const clientEspeceGerant = getClientSpecificData('especeGerant', 0);
-        setEspeceGerant(clientEspeceGerant);
+    // Initialiser les items de stock
+    const initialStockItems = boissons.map((boisson) => ({
+      boissonId: boisson.id,
+      quantite: 0,
+      valeur: 0,
+    }));
+    setStockItems(initialStockItems);
+
+    // Initialiser les items d'arrivage
+    const initialArrivageItems = boissons.map((boisson) => ({
+      boissonId: boisson.id,
+      quantite: 0,
+      typeTrous: Array.isArray(boisson.trous) ? boisson.trous[0] : boisson.trous,
+      valeur: 0,
+    }));
+    setArrivageItems(initialArrivageItems);
+
+    // Charger les données du localStorage
+    const loadPreviousData = () => {
+      try {
+        // Charger le stock précédent
+        const previousStock = localStorage.getItem('stockData');
+        if (previousStock) {
+          const stockData = JSON.parse(previousStock);
+          setStockAncien(stockData.total);
+        }
+
+        // Charger l'arrivage précédent
+        const previousArrival = localStorage.getItem('arrivalData');
+        if (previousArrival) {
+          const arrivalData = JSON.parse(previousArrival);
+          // Mise à jour possible des données d'arrivage si nécessaire
+        }
+
+        // Autres données à charger si nécessaire
+      } catch (error) {
+        console.error("Erreur lors du chargement des données précédentes:", error);
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    loadPreviousData();
   }, []);
 
   // Calculer la valeur du stock pour chaque boisson
@@ -303,7 +246,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Mettre à jour le stock ancien
   const updateStockAncien = (montant: number) => {
     setStockAncien(montant);
-    saveClientSpecificData('stockAncien', montant);
   };
 
   // Calculer le stock général
@@ -315,7 +257,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Mettre à jour la somme encaissée
   const updateSommeEncaissee = (montant: number) => {
     setSommeEncaissee(montant);
-    saveClientSpecificData('sommeEncaissee', montant);
   };
 
   // Calculer le reste
@@ -329,16 +270,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       montant,
       date: new Date().toISOString().split('T')[0]
     };
-    const nouvellesDepenses = [...depenses, nouvelleDepense];
-    setDepenses(nouvellesDepenses);
-    saveClientSpecificData('depenses', nouvellesDepenses);
+    setDepenses([...depenses, nouvelleDepense]);
   };
 
   // Supprimer une dépense
   const supprimerDepense = (id: number) => {
-    const nouvellesDepenses = depenses.filter(depense => depense.id !== id);
-    setDepenses(nouvellesDepenses);
-    saveClientSpecificData('depenses', nouvellesDepenses);
+    setDepenses(depenses.filter(depense => depense.id !== id));
   };
 
   // Calculer le total des dépenses
@@ -350,7 +287,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Mettre à jour l'espèce du gérant
   const updateEspeceGerant = (montant: number) => {
     setEspeceGerant(montant);
-    saveClientSpecificData('especeGerant', montant);
   };
 
   // Calculer le résultat final
@@ -359,7 +295,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setResultatFinal(resultat);
   };
 
-  // Sauvegarder les données du stock spécifiques au client
+  // Sauvegarder les données du stock
   const saveStockData = () => {
     try {
       const stockData = {
@@ -375,7 +311,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         })
       };
       
-      saveClientSpecificData('stockData', stockData);
+      localStorage.setItem('stockData', JSON.stringify(stockData));
       toast({
         title: "Succès",
         description: "Stock restant enregistré avec succès!",
@@ -390,7 +326,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  // Sauvegarder les données de l'arrivage spécifiques au client
+  // Sauvegarder les données de l'arrivage
   const saveArrivageData = () => {
     try {
       const arrivageData = {
@@ -407,7 +343,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         })
       };
       
-      saveClientSpecificData('arrivalData', arrivageData);
+      localStorage.setItem('arrivalData', JSON.stringify(arrivageData));
       toast({
         title: "Succès",
         description: "Arrivage enregistré avec succès!",
@@ -422,7 +358,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  // Sauvegarder les résultats spécifiques au client
+  // Sauvegarder les résultats
   const saveResults = () => {
     try {
       const resultsData = {
@@ -440,27 +376,32 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         resultatFinal
       };
       
-      saveClientSpecificData('resultsData', resultsData);
+      localStorage.setItem('resultsData', JSON.stringify(resultsData));
       
       // Sauvegarder le stock actuel comme ancien stock pour la prochaine fois
-      saveClientSpecificData('previousStock', {
+      localStorage.setItem('previousStock', JSON.stringify({
         total: stockTotal
-      });
+      }));
       
-      // Ajouter à l'historique des points spécifique au client
-      const historicalData = getClientSpecificData('historicalResults', []);
-      let history = historicalData || [];
+      // Ajouter à l'historique des points
+      const historicalData = localStorage.getItem('historicalResults');
+      let history = [];
       
-      // Vérifier si une entrée pour cette date existe déjà
-      const existingIndex = history.findIndex((item: any) => item.date === resultsData.date);
-      
-      if (existingIndex >= 0) {
-        history[existingIndex] = resultsData;
+      if (historicalData) {
+        history = JSON.parse(historicalData);
+        // Vérifier si une entrée pour cette date existe déjà
+        const existingIndex = history.findIndex((item: any) => item.date === resultsData.date);
+        
+        if (existingIndex >= 0) {
+          history[existingIndex] = resultsData;
+        } else {
+          history.push(resultsData);
+        }
       } else {
-        history.push(resultsData);
+        history = [resultsData];
       }
       
-      saveClientSpecificData('historicalResults', history);
+      localStorage.setItem('historicalResults', JSON.stringify(history));
       
       toast({
         title: "Succès",
