@@ -11,13 +11,32 @@ export interface User {
   date_expiration?: string;
 }
 
-// Configuration de l'ID utilisateur pour RLS
-const setCurrentUserId = (userId: string) => {
-  return supabase.rpc('set_config', {
-    setting_name: 'app.current_user_id',
-    setting_value: userId,
-    is_local: false
-  });
+// Configuration de l'ID utilisateur pour RLS via Edge Function
+const setCurrentUserId = async (userId: string) => {
+  try {
+    const response = await fetch('/functions/v1/set-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabase.supabaseKey}`
+      },
+      body: JSON.stringify({
+        setting_name: 'app.current_user_id',
+        setting_value: userId,
+        is_local: false
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to set user context');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur configuration utilisateur:', error);
+    // Fallback: utiliser une méthode alternative si disponible
+    return null;
+  }
 };
 
 export const login = async (username: string, password: string): Promise<User | null> => {
@@ -65,8 +84,8 @@ export const login = async (username: string, password: string): Promise<User | 
       username: user.username,
       nom: user.nom,
       email: user.email,
-      role: user.role,
-      statut: user.statut,
+      role: user.role as 'admin' | 'client',
+      statut: user.statut as 'actif' | 'inactif',
       date_expiration: user.date_expiration
     };
   } catch (error) {
@@ -77,11 +96,7 @@ export const login = async (username: string, password: string): Promise<User | 
 
 export const logout = async () => {
   // Effacer la configuration RLS
-  await supabase.rpc('set_config', {
-    setting_name: 'app.current_user_id',
-    setting_value: '',
-    is_local: false
-  });
+  await setCurrentUserId('');
 };
 
 export const createClient = async (clientData: {
@@ -92,6 +107,14 @@ export const createClient = async (clientData: {
   date_expiration?: string;
 }) => {
   try {
+    // Hasher le mot de passe d'abord
+    const { data: hashedPassword, error: hashError } = await supabase
+      .rpc('hash_password', { password: clientData.password });
+
+    if (hashError || !hashedPassword) {
+      throw new Error('Erreur lors du hashage du mot de passe');
+    }
+
     const { data, error } = await supabase
       .from('users')
       .insert([
@@ -99,7 +122,7 @@ export const createClient = async (clientData: {
           username: clientData.username,
           nom: clientData.nom,
           email: clientData.email,
-          password_hash: await supabase.rpc('hash_password', { password: clientData.password }),
+          password_hash: hashedPassword,
           role: 'client',
           statut: 'actif',
           date_expiration: clientData.date_expiration

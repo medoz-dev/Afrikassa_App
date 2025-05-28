@@ -26,7 +26,13 @@ export const getClientBoissons = async (clientId: string): Promise<ClientBoisson
       throw error;
     }
 
-    return data || [];
+    // Transformer les données pour correspondre à l'interface
+    const transformedData = (data || []).map(item => ({
+      ...item,
+      trous: typeof item.trous === 'string' ? JSON.parse(item.trous) : item.trous
+    })) as ClientBoisson[];
+
+    return transformedData;
   } catch (error) {
     console.error('Erreur récupération boissons:', error);
     return [];
@@ -47,7 +53,7 @@ export const saveClientBoissons = async (clientId: string, boissons: any[]) => {
       boisson_id: boisson.id,
       nom: boisson.nom,
       prix: boisson.prix,
-      trous: boisson.trous,
+      trous: JSON.stringify(boisson.trous), // Convertir en JSON pour stockage
       type: boisson.type,
       special: boisson.special || false,
       special_price: boisson.specialPrice,
@@ -71,9 +77,15 @@ export const saveClientBoissons = async (clientId: string, boissons: any[]) => {
 
 export const updateClientBoisson = async (clientId: string, boissonId: number, updates: Partial<ClientBoisson>) => {
   try {
+    // Préparer les données de mise à jour
+    const updateData: any = { ...updates };
+    if (updateData.trous) {
+      updateData.trous = JSON.stringify(updateData.trous);
+    }
+
     const { error } = await supabase
       .from('client_boissons')
-      .update(updates)
+      .update(updateData)
       .eq('client_id', clientId)
       .eq('boisson_id', boissonId);
 
