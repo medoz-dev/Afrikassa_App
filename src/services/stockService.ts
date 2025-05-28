@@ -1,27 +1,20 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface ClientStock {
+export interface StockItem {
   id: string;
-  client_id: string;
-  boisson_id: number;
+  nom: string;
   quantite: number;
-  valeur: number;
-  date_stock: string;
+  prix_unitaire: number;
+  seuil_alerte: number;
 }
 
-export const getClientStock = async (clientId: string, dateStock?: string): Promise<ClientStock[]> => {
+export const getStock = async (): Promise<StockItem[]> => {
   try {
-    let query = supabase
-      .from('client_stock')
+    const { data, error } = await supabase
+      .from('stock')
       .select('*')
-      .eq('client_id', clientId);
-
-    if (dateStock) {
-      query = query.eq('date_stock', dateStock);
-    }
-
-    const { data, error } = await query.order('boisson_id');
+      .order('nom');
 
     if (error) {
       throw error;
@@ -34,27 +27,16 @@ export const getClientStock = async (clientId: string, dateStock?: string): Prom
   }
 };
 
-export const saveClientStock = async (clientId: string, stockItems: any[], dateStock: string) => {
+export const addArrivage = async (item: { nom: string; quantite: number; prix_unitaire: number }) => {
   try {
-    // Supprimer les données de stock existantes pour cette date
-    await supabase
-      .from('client_stock')
-      .delete()
-      .eq('client_id', clientId)
-      .eq('date_stock', dateStock);
-
-    // Insérer les nouvelles données
-    const stockData = stockItems.map(item => ({
-      client_id: clientId,
-      boisson_id: item.boissonId,
-      quantite: item.quantite,
-      valeur: item.valeur,
-      date_stock: dateStock
-    }));
-
     const { error } = await supabase
-      .from('client_stock')
-      .insert(stockData);
+      .from('stock')
+      .insert([{
+        nom: item.nom,
+        quantite: item.quantite,
+        prix_unitaire: item.prix_unitaire,
+        seuil_alerte: 10, // Valeur par défaut
+      }]);
 
     if (error) {
       throw error;
@@ -62,7 +44,25 @@ export const saveClientStock = async (clientId: string, stockItems: any[], dateS
 
     return true;
   } catch (error) {
-    console.error('Erreur sauvegarde stock:', error);
+    console.error('Erreur ajout arrivage:', error);
+    throw error;
+  }
+};
+
+export const updateStock = async (id: string, updates: Partial<StockItem>) => {
+  try {
+    const { error } = await supabase
+      .from('stock')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erreur mise à jour stock:', error);
     throw error;
   }
 };

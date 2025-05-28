@@ -1,131 +1,97 @@
 
-import React from 'react';
-import { useAppContext } from '@/context/AppContext';
-import { Input } from '@/components/ui/input';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus } from 'lucide-react';
+import { addArrivage } from '@/services/stockService';
+import { toast } from '@/components/ui/use-toast';
+
+interface ArrivageItem {
+  nom: string;
+  quantite: number;
+  prix_unitaire: number;
+}
 
 const ArrivageTable: React.FC = () => {
-  const {
-    boissons,
-    arrivageItems,
-    updateArrivageItem,
-    arrivageTotal,
-    arrivageDate,
-    setArrivageDate,
-    saveArrivageData
-  } = useAppContext();
+  const [newItem, setNewItem] = useState<ArrivageItem>({
+    nom: '',
+    quantite: 0,
+    prix_unitaire: 0,
+  });
 
-  const handleQuantityChange = (boissonId: number, value: string) => {
-    const quantity = parseFloat(value) || 0;
-    updateArrivageItem(boissonId, quantity);
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newItem.nom.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le nom du produit est requis",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const handleTrousTypeChange = (boissonId: number, value: string) => {
-    const trousType = parseInt(value);
-    const arrivageItem = arrivageItems.find(item => item.boissonId === boissonId);
-    if (arrivageItem) {
-      updateArrivageItem(boissonId, arrivageItem.quantite, trousType);
+    try {
+      await addArrivage(newItem);
+      toast({
+        title: "Succès",
+        description: "Arrivage ajouté avec succès"
+      });
+      setNewItem({ nom: '', quantite: 0, prix_unitaire: 0 });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de l'ajout de l'arrivage",
+        variant: "destructive"
+      });
     }
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Calcul de l'Arrivage</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="info-box mb-4">
-            <p>Veuillez entrer le nombre de casiers, sachets, cartons ou emballages arrivés pour chaque type de boisson.</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Nouvel Arrivage</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Nom du produit</label>
+              <Input
+                type="text"
+                value={newItem.nom}
+                onChange={(e) => setNewItem({ ...newItem, nom: e.target.value })}
+                placeholder="Nom du produit"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Quantité</label>
+              <Input
+                type="number"
+                value={newItem.quantite}
+                onChange={(e) => setNewItem({ ...newItem, quantite: Number(e.target.value) })}
+                placeholder="Quantité"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Prix unitaire</label>
+              <Input
+                type="number"
+                value={newItem.prix_unitaire}
+                onChange={(e) => setNewItem({ ...newItem, prix_unitaire: Number(e.target.value) })}
+                placeholder="Prix unitaire"
+              />
+            </div>
           </div>
-          
-          <div className="mb-6">
-            <label htmlFor="arrivalDate" className="block text-sm font-medium mb-1">Date d'arrivage:</label>
-            <Input
-              type="date"
-              id="arrivalDate"
-              value={arrivageDate}
-              onChange={(e) => setArrivageDate(e.target.value)}
-              className="max-w-xs"
-            />
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-primary text-white">
-                  <th className="p-2 text-left">Boisson</th>
-                  <th className="p-2 text-left">Unités par Casier/Sachet</th>
-                  <th className="p-2 text-left">Nombre de Casiers/Sachets</th>
-                  <th className="p-2 text-left">Valeur</th>
-                </tr>
-              </thead>
-              <tbody>
-                {boissons.map((boisson) => {
-                  const arrivageItem = arrivageItems.find(item => item.boissonId === boisson.id);
-                  return (
-                    <tr key={boisson.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="p-2">{boisson.nom}</td>
-                      <td className="p-2">
-                        {Array.isArray(boisson.trous) ? 
-                          `${boisson.trous[0]} ou ${boisson.trous[1]} unités` : 
-                          boisson.type === 'unite' ? 'Unité' : `${boisson.trous} unités`}
-                      </td>
-                      <td className="p-2">
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            value={arrivageItem?.quantite || 0}
-                            onChange={(e) => handleQuantityChange(boisson.id, e.target.value)}
-                            className="w-24"
-                          />
-                          
-                          {Array.isArray(boisson.trous) && (
-                            <Select 
-                              value={arrivageItem?.typeTrous?.toString() || boisson.trous[0].toString()} 
-                              onValueChange={(value) => handleTrousTypeChange(boisson.id, value)}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue placeholder="Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={boisson.trous[0].toString()}>
-                                  {boisson.trous[0]} trous
-                                </SelectItem>
-                                <SelectItem value={boisson.trous[1].toString()}>
-                                  {boisson.trous[1]} trous
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 font-medium">{arrivageItem?.valeur.toLocaleString()} FCFA</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td colSpan={3} className="p-2 font-bold">Total</td>
-                  <td className="p-2 font-bold">{arrivageTotal.toLocaleString()} FCFA</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          
-          <div className="mt-6">
-            <Button onClick={saveArrivageData} className="bg-green-600 hover:bg-green-700">
-              Enregistrer l'Arrivage
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          <Button type="submit" className="w-full">
+            <Plus className="mr-2 h-4 w-4" />
+            Ajouter l'arrivage
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 
