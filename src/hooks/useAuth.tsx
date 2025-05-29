@@ -1,0 +1,187 @@
+
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  signIn: (username: string, password: string) => Promise<boolean>;
+  signOut: () => Promise<void>;
+  isCreator: boolean;
+  isAdmin: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Configuration de l'écoute des changements d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    // Vérification de la session existante
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signIn = async (username: string, password: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      // Vérification créateur
+      if (password === 'meki') {
+        // Pour le créateur, on peut utiliser une connexion spéciale ou créer un compte admin
+        toast({
+          title: "Connexion créateur réussie",
+          description: "Bienvenue dans le panneau créateur !",
+        });
+        // Redirection sera gérée par le composant parent
+        return true;
+      }
+
+      // Récupérer l'utilisateur par username depuis notre table users
+      const { data: userRecord, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (userError || !userRecord) {
+        toast({
+          title: "Échec de la connexion",
+          description: "Nom d'utilisateur introuvable",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Vérifier le statut du compte
+      if (userRecord.statut !== 'actif') {
+        toast({
+          title: "Accès suspendu",
+          description: "Votre compte a été désactivé. Contactez l'administrateur.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Vérifier l'expiration
+      if (userRecord.date_expiration) {
+        const dateExpiration = new Date(userRecord.date_expiration);
+        const maintenant = new Date();
+        
+        if (maintenant > dateExpiration) {
+          toast({
+            title: "Abonnement expiré",
+            description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
+            variant: "destructive"
+          });
+          return false;
+        }
+      }
+
+      // Utiliser l'email pour la connexion Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: userRecord.email,
+        password: password,
+      });
+
+      if (error) {
+        console.error('Erreur de connexion:', error);
+        toast({
+          title: "Échec de la connexion",
+          description: "Mot de passe incorrect",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (data.user) {
+        toast({
+          title: "Connexion réussie",
+          description: `Bienvenue ${userRecord.nom} !`,
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Erreur lors de la connexion:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la connexion",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast({
+        title: "Déconnexion réussie",
+        description: "À bientôt !",
+      });
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la déconnexion",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Vérifier si c'est le créateur (basé sur les métadonnées ou le rôle)
+  const isCreator = user?.user_metadata?.role === 'creator' || false;
+  
+  // Vérifier si c'est un admin
+  const isAdmin = user?.user_metadata?.role === 'admin' || false;
+
+  const value: AuthContextType = {
+    user,
+    session,
+    loading,
+    signIn,
+    signOut,
+    isCreator,
+    isAdmin,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

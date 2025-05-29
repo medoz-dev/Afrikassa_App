@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Key, User, Database, Calendar } from 'lucide-react';
+import { Trash2, Plus, Key, User, Database } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Client {
   id: string;
@@ -17,7 +18,7 @@ interface Client {
   password: string;
   dateCreation: string;
   dateExpiration?: string;
-  dureeAbonnement: number; // en jours
+  dureeAbonnement: number;
   statut: 'actif' | 'inactif';
 }
 
@@ -31,19 +32,44 @@ const CreatorPanel: React.FC = () => {
     dureeAbonnement: 30
   });
 
-  // Charger les clients depuis le localStorage
-  useEffect(() => {
-    const clientsStockes = localStorage.getItem('clients_list');
-    if (clientsStockes) {
-      setClients(JSON.parse(clientsStockes));
-    }
-  }, []);
+  // Charger les clients depuis Supabase
+  const chargerClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'client')
+        .order('created_at', { ascending: false });
 
-  // Sauvegarder les clients dans le localStorage
-  const sauvegarderClients = (nouveauxClients: Client[]) => {
-    localStorage.setItem('clients_list', JSON.stringify(nouveauxClients));
-    setClients(nouveauxClients);
+      if (error) throw error;
+
+      const clientsFormates = data.map(user => ({
+        id: user.id,
+        nom: user.nom,
+        email: user.email,
+        username: user.username,
+        password: '********', // Ne pas exposer le mot de passe hashé
+        dateCreation: new Date(user.date_creation).toLocaleDateString('fr-FR'),
+        dateExpiration: user.date_expiration,
+        dureeAbonnement: user.date_expiration ? 
+          Math.ceil((new Date(user.date_expiration).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0,
+        statut: user.statut as 'actif' | 'inactif'
+      }));
+
+      setClients(clientsFormates);
+    } catch (error) {
+      console.error('Erreur lors du chargement des clients:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les clients",
+        variant: "destructive"
+      });
+    }
   };
+
+  useEffect(() => {
+    chargerClients();
+  }, []);
 
   // Générer un mot de passe aléatoire
   const genererMotDePasse = () => {
@@ -63,7 +89,7 @@ const CreatorPanel: React.FC = () => {
   };
 
   // Ajouter un nouveau client
-  const ajouterClient = () => {
+  const ajouterClient = async () => {
     if (!nouveauClient.nom || !nouveauClient.email || !nouveauClient.username || !nouveauClient.password) {
       toast({
         title: "Erreur",
@@ -73,100 +99,170 @@ const CreatorPanel: React.FC = () => {
       return;
     }
 
-    // Vérifier si l'username existe déjà
-    const usernameExiste = clients.some(client => client.username === nouveauClient.username);
-    if (usernameExiste) {
+    try {
+      // Vérifier si l'username existe déjà
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', nouveauClient.username)
+        .single();
+
+      if (existingUser) {
+        toast({
+          title: "Erreur",
+          description: "Ce nom d'utilisateur existe déjà",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const dateExpiration = calculerDateExpiration(nouveauClient.dureeAbonnement);
+
+      // Créer l'utilisateur via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: nouveauClient.email,
+        password: nouveauClient.password,
+        options: {
+          data: {
+            username: nouveauClient.username,
+            nom: nouveauClient.nom,
+            role: 'client'
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Erreur Auth:', authError);
+        toast({
+          title: "Erreur",
+          description: "Erreur lors de la création du compte d'authentification",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Insérer dans notre table users
+      const { error: dbError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user?.id,
+          nom: nouveauClient.nom,
+          email: nouveauClient.email,
+          username: nouveauClient.username,
+          password_hash: 'managed_by_auth', // Le hash est géré par Supabase Auth
+          role: 'client',
+          statut: 'actif',
+          date_expiration: dateExpiration
+        });
+
+      if (dbError) {
+        console.error('Erreur DB:', dbError);
+        toast({
+          title: "Erreur",
+          description: "Erreur lors de l'enregistrement des données utilisateur",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
+      await chargerClients();
+
+      toast({
+        title: "Client ajouté",
+        description: `Client ${nouveauClient.nom} ajouté avec un abonnement de ${nouveauClient.dureeAbonnement} jours`,
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du client:', error);
       toast({
         title: "Erreur",
-        description: "Ce nom d'utilisateur existe déjà",
+        description: "Une erreur est survenue lors de l'ajout du client",
         variant: "destructive"
       });
-      return;
     }
-
-    const dateExpiration = calculerDateExpiration(nouveauClient.dureeAbonnement);
-
-    const client: Client = {
-      id: Date.now().toString(),
-      ...nouveauClient,
-      dateCreation: new Date().toLocaleDateString('fr-FR'),
-      dateExpiration,
-      statut: 'actif'
-    };
-
-    const nouveauxClients = [...clients, client];
-    sauvegarderClients(nouveauxClients);
-
-    setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
-
-    toast({
-      title: "Client ajouté",
-      description: `Client ${client.nom} ajouté avec un abonnement de ${client.dureeAbonnement} jours`,
-    });
   };
 
   // Supprimer un client
-  const supprimerClient = (id: string) => {
-    const nouveauxClients = clients.filter(client => client.id !== id);
-    sauvegarderClients(nouveauxClients);
-    
-    // Supprimer aussi la session si le client supprimé est connecté
-    const currentUser = localStorage.getItem('current_user');
-    if (currentUser) {
-      const user = JSON.parse(currentUser);
-      if (user.id === id) {
-        localStorage.removeItem('current_user');
-      }
+  const supprimerClient = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await chargerClients();
+      
+      toast({
+        title: "Client supprimé",
+        description: "Le client a été supprimé avec succès",
+      });
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la suppression du client",
+        variant: "destructive"
+      });
     }
-    
-    toast({
-      title: "Client supprimé",
-      description: "Le client a été supprimé avec succès. Il sera automatiquement déconnecté.",
-    });
   };
 
   // Changer le statut d'un client
-  const changerStatut = (id: string) => {
-    const nouveauxClients = clients.map(client => 
-      client.id === id 
-        ? { ...client, statut: client.statut === 'actif' ? 'inactif' : 'actif' as 'actif' | 'inactif' }
-        : client
-    );
-    sauvegarderClients(nouveauxClients);
+  const changerStatut = async (id: string, nouveauStatut: 'actif' | 'inactif') => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ statut: nouveauStatut })
+        .eq('id', id);
 
-    // Déconnecter le client s'il est désactivé et actuellement connecté
-    const clientModifie = nouveauxClients.find(c => c.id === id);
-    if (clientModifie?.statut === 'inactif') {
-      const currentUser = localStorage.getItem('current_user');
-      if (currentUser) {
-        const user = JSON.parse(currentUser);
-        if (user.id === id) {
-          localStorage.removeItem('current_user');
-        }
-      }
+      if (error) throw error;
+
+      await chargerClients();
+      
+      toast({
+        title: "Statut modifié",
+        description: `Le statut du client a été changé à ${nouveauStatut}`,
+      });
+    } catch (error) {
+      console.error('Erreur lors du changement de statut:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du changement de statut",
+        variant: "destructive"
+      });
     }
   };
 
   // Prolonger l'abonnement d'un client
-  const prolongerAbonnement = (id: string, nouveauxJours: number) => {
-    const nouveauxClients = clients.map(client => {
-      if (client.id === id) {
-        const nouvelleDateExpiration = calculerDateExpiration(nouveauxJours);
-        return { 
-          ...client, 
-          dureeAbonnement: nouveauxJours,
-          dateExpiration: nouvelleDateExpiration,
-          statut: 'actif' as 'actif' | 'inactif'
-        };
-      }
-      return client;
-    });
-    sauvegarderClients(nouveauxClients);
+  const prolongerAbonnement = async (id: string, nouveauxJours: number) => {
+    try {
+      const nouvelleDateExpiration = calculerDateExpiration(nouveauxJours);
+      
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          date_expiration: nouvelleDateExpiration,
+          statut: 'actif'
+        })
+        .eq('id', id);
 
-    toast({
-      title: "Abonnement prolongé",
-      description: `L'abonnement a été prolongé de ${nouveauxJours} jours`,
-    });
+      if (error) throw error;
+
+      await chargerClients();
+
+      toast({
+        title: "Abonnement prolongé",
+        description: `L'abonnement a été prolongé de ${nouveauxJours} jours`,
+      });
+    } catch (error) {
+      console.error('Erreur lors de la prolongation:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la prolongation de l'abonnement",
+        variant: "destructive"
+      });
+    }
   };
 
   // Calculer les jours restants
@@ -183,7 +279,7 @@ const CreatorPanel: React.FC = () => {
         <User className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients avec contrôle des abonnements</p>
+          <p className="text-gray-600">Gestion des comptes clients avec authentification universelle</p>
         </div>
       </div>
 
@@ -289,7 +385,6 @@ const CreatorPanel: React.FC = () => {
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Username</TableHead>
-                    <TableHead>Password</TableHead>
                     <TableHead>Date création</TableHead>
                     <TableHead>Abonnement</TableHead>
                     <TableHead>Statut</TableHead>
@@ -307,11 +402,6 @@ const CreatorPanel: React.FC = () => {
                         <TableCell className="font-medium">{client.nom}</TableCell>
                         <TableCell>{client.email}</TableCell>
                         <TableCell>{client.username}</TableCell>
-                        <TableCell>
-                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                            {client.password}
-                          </code>
-                        </TableCell>
                         <TableCell>{client.dateCreation}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
@@ -351,7 +441,7 @@ const CreatorPanel: React.FC = () => {
                           <Button
                             variant={client.statut === 'actif' ? 'default' : 'secondary'}
                             size="sm"
-                            onClick={() => changerStatut(client.id)}
+                            onClick={() => changerStatut(client.id, client.statut === 'actif' ? 'inactif' : 'actif')}
                           >
                             {client.statut}
                           </Button>

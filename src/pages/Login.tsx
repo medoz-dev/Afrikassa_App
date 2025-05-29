@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Package, Eye, EyeOff, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,89 +14,44 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn, user, isCreator } = useAuth();
+
+  // Redirection automatique si déjà connecté
+  useEffect(() => {
+    if (user) {
+      if (isCreator) {
+        navigate('/creator-panel');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, isCreator, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simuler un délai de connexion
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Vérification pour le créateur de l'app
-    if (password === 'meki') {
-      toast({
-        title: "Connexion créateur réussie",
-        description: "Bienvenue dans le panneau créateur !",
-      });
-      navigate('/creator-panel');
-      setIsLoading(false);
-      return;
-    }
-
-    // Vérification pour les clients
-    const clientsStockes = localStorage.getItem('clients_list');
-    if (clientsStockes) {
-      const clients = JSON.parse(clientsStockes);
-      const clientTrouve = clients.find((client: any) => 
-        client.username === username && 
-        client.password === password
-      );
-
-      if (clientTrouve) {
-        // Vérifier si le client est actif
-        if (clientTrouve.statut !== 'actif') {
-          toast({
-            title: "Accès suspendu",
-            description: "Votre compte a été désactivé. Contactez l'administrateur.",
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        // Vérifier si l'abonnement a expiré
-        if (clientTrouve.dateExpiration) {
-          const dateExpiration = new Date(clientTrouve.dateExpiration);
-          const maintenant = new Date();
-          
-          if (maintenant > dateExpiration) {
-            // Désactiver automatiquement le client expiré
-            const clientsMisAJour = clients.map((c: any) => 
-              c.id === clientTrouve.id ? { ...c, statut: 'inactif' } : c
-            );
-            localStorage.setItem('clients_list', JSON.stringify(clientsMisAJour));
-            
-            toast({
-              title: "Abonnement expiré",
-              description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
-              variant: "destructive"
-            });
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Sauvegarder les infos du client connecté
-        localStorage.setItem('current_user', JSON.stringify(clientTrouve));
-        
+    try {
+      // Vérification pour le créateur
+      if (password === 'meki') {
         toast({
-          title: "Connexion réussie",
-          description: `Bienvenue ${clientTrouve.nom} !`,
+          title: "Connexion créateur réussie",
+          description: "Bienvenue dans le panneau créateur !",
         });
-        navigate('/dashboard');
-        setIsLoading(false);
+        navigate('/creator-panel');
         return;
       }
+
+      const success = await signIn(username, password);
+      
+      if (success) {
+        // La redirection sera gérée par l'effet useEffect ci-dessus
+      }
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+    } finally {
+      setIsLoading(false);
     }
-
-    // Si aucune correspondance trouvée
-    toast({
-      title: "Échec de la connexion",
-      description: "Identifiants invalides ou compte inactif. Contactez-nous pour obtenir votre accès.",
-      variant: "destructive"
-    });
-
-    setIsLoading(false);
   };
 
   const handleWhatsAppContact = () => {
