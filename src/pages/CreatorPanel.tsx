@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,7 @@ const CreatorPanel: React.FC = () => {
       const clientsFormates = data.map(user => ({
         id: user.id,
         nom: user.nom,
-        email: user.email,
+        email: user.email || '',
         username: user.username,
         password: '********', // Ne pas exposer le mot de passe hashé
         dateCreation: new Date(user.date_creation).toLocaleDateString('fr-FR'),
@@ -88,7 +87,7 @@ const CreatorPanel: React.FC = () => {
     return dateExpiration.toISOString();
   };
 
-  // Ajouter un nouveau client
+  // Ajouter un nouveau client (méthode simplifiée)
   const ajouterClient = async () => {
     if (!nouveauClient.nom || !nouveauClient.email || !nouveauClient.username || !nouveauClient.password) {
       toast({
@@ -118,7 +117,7 @@ const CreatorPanel: React.FC = () => {
 
       const dateExpiration = calculerDateExpiration(nouveauClient.dureeAbonnement);
 
-      // Créer l'utilisateur via Supabase Auth
+      // Créer l'utilisateur directement via Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: nouveauClient.email,
         password: nouveauClient.password,
@@ -135,43 +134,45 @@ const CreatorPanel: React.FC = () => {
         console.error('Erreur Auth:', authError);
         toast({
           title: "Erreur",
-          description: "Erreur lors de la création du compte d'authentification",
+          description: `Erreur lors de la création du compte: ${authError.message}`,
           variant: "destructive"
         });
         return;
       }
 
-      // Insérer dans notre table users
-      const { error: dbError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user?.id,
-          nom: nouveauClient.nom,
-          email: nouveauClient.email,
-          username: nouveauClient.username,
-          password_hash: 'managed_by_auth', // Le hash est géré par Supabase Auth
-          role: 'client',
-          statut: 'actif',
-          date_expiration: dateExpiration
-        });
+      if (authData.user) {
+        // Insérer dans notre table users avec l'ID du compte Auth
+        const { error: dbError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            nom: nouveauClient.nom,
+            email: nouveauClient.email,
+            username: nouveauClient.username,
+            password_hash: 'managed_by_auth',
+            role: 'client',
+            statut: 'actif',
+            date_expiration: dateExpiration
+          });
 
-      if (dbError) {
-        console.error('Erreur DB:', dbError);
-        toast({
-          title: "Erreur",
-          description: "Erreur lors de l'enregistrement des données utilisateur",
-          variant: "destructive"
-        });
-        return;
+        if (dbError) {
+          console.error('Erreur DB:', dbError);
+          toast({
+            title: "Avertissement",
+            description: "Compte créé mais données non synchronisées. Le client peut se connecter.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Client ajouté",
+            description: `Client ${nouveauClient.nom} ajouté avec succès (${nouveauClient.dureeAbonnement} jours)`,
+          });
+        }
       }
 
       setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
       await chargerClients();
 
-      toast({
-        title: "Client ajouté",
-        description: `Client ${nouveauClient.nom} ajouté avec un abonnement de ${nouveauClient.dureeAbonnement} jours`,
-      });
     } catch (error) {
       console.error('Erreur lors de l\'ajout du client:', error);
       toast({

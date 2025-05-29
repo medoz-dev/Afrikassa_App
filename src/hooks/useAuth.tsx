@@ -58,15 +58,65 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       setLoading(true);
 
-      // Vérification créateur
+      // Vérification créateur - connexion spéciale
       if (password === 'meki') {
-        // Pour le créateur, on peut utiliser une connexion spéciale ou créer un compte admin
-        toast({
-          title: "Connexion créateur réussie",
-          description: "Bienvenue dans le panneau créateur !",
-        });
-        // Redirection sera gérée par le composant parent
-        return true;
+        // Créer un utilisateur créateur temporaire dans Supabase Auth
+        const creatorEmail = `creator-${username}@afrikassa.local`;
+        
+        try {
+          // Essayer de se connecter en tant que créateur
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: creatorEmail,
+            password: 'creator-meki-2024',
+          });
+
+          if (error && error.message.includes('Invalid login credentials')) {
+            // Créer le compte créateur s'il n'existe pas
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+              email: creatorEmail,
+              password: 'creator-meki-2024',
+              options: {
+                data: {
+                  username: username,
+                  nom: 'Créateur AfriKassa',
+                  role: 'creator'
+                }
+              }
+            });
+
+            if (signUpError) {
+              console.error('Erreur création créateur:', signUpError);
+              toast({
+                title: "Erreur",
+                description: "Impossible de créer le compte créateur",
+                variant: "destructive"
+              });
+              return false;
+            }
+          } else if (error) {
+            console.error('Erreur connexion créateur:', error);
+            toast({
+              title: "Erreur",
+              description: "Impossible de se connecter en tant que créateur",
+              variant: "destructive"
+            });
+            return false;
+          }
+
+          toast({
+            title: "Connexion créateur réussie",
+            description: "Bienvenue dans le panneau créateur !",
+          });
+          return true;
+        } catch (err) {
+          console.error('Erreur créateur:', err);
+          toast({
+            title: "Erreur",
+            description: "Problème de connexion créateur",
+            variant: "destructive"
+          });
+          return false;
+        }
       }
 
       // Récupérer l'utilisateur par username depuis notre table users
@@ -111,6 +161,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Utiliser l'email pour la connexion Supabase
+      if (!userRecord.email) {
+        toast({
+          title: "Erreur de configuration",
+          description: "Aucun email associé à ce compte. Contactez l'administrateur.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: userRecord.email,
         password: password,
