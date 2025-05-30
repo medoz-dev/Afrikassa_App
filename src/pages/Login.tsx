@@ -20,9 +20,9 @@ const Login: React.FC = () => {
   useEffect(() => {
     if (user) {
       if (isCreator) {
-        navigate('/creator-panel');
-      } else {
         navigate('/dashboard');
+      } else {
+        navigate('/caisse');
       }
     }
   }, [user, isCreator, navigate]);
@@ -38,14 +38,15 @@ const Login: React.FC = () => {
           title: "Connexion créateur réussie",
           description: "Bienvenue dans le panneau créateur !",
         });
-        navigate('/creator-panel');
+        navigate('/dashboard');
         return;
       }
 
       const success = await signIn(username, password);
       
       if (success) {
-        // La redirection sera gérée par l'effet useEffect ci-dessus
+        // Redirection vers la page caisse pour les utilisateurs normaux
+        navigate('/caisse');
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);

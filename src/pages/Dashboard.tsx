@@ -11,9 +11,11 @@ import { Package2, ArrowDownUp, Calculator, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/hooks/useAuth';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { isCreator } = useAuth();
   const { 
     stockTotal, 
     arrivageTotal, 
@@ -25,6 +27,12 @@ const Dashboard: React.FC = () => {
     const currentUser = localStorage.getItem('current_user');
     if (!currentUser) {
       navigate('/login');
+      return;
+    }
+
+    // Rediriger les utilisateurs normaux vers la page caisse
+    if (!isCreator) {
+      navigate('/caisse');
       return;
     }
 
@@ -55,7 +63,7 @@ const Dashboard: React.FC = () => {
         localStorage.setItem('current_user', JSON.stringify(clientActuel));
       }
     }
-  }, [navigate]);
+  }, [navigate, isCreator]);
 
   return (
     <div className="space-y-6">
