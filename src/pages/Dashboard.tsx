@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
@@ -6,12 +7,10 @@ import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
 import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle, MessageCircle } from 'lucide-react';
+import { Package2, ArrowDownUp, Calculator, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ const Dashboard: React.FC = () => {
     venteTheorique 
   } = useAppContext();
 
-  // Vérifier l'état du client à chaque chargement du dashboard
+  // Vérifier l'état du client à chaque chargement du dashboard (simplifié)
   useEffect(() => {
     const currentUser = localStorage.getItem('current_user');
     if (!currentUser) {
@@ -29,6 +28,7 @@ const Dashboard: React.FC = () => {
       return;
     }
 
+    // Vérification simplifiée sans abonnement
     const user = JSON.parse(currentUser);
     const clientsStockes = localStorage.getItem('clients_list');
     
@@ -39,11 +39,6 @@ const Dashboard: React.FC = () => {
       if (!clientActuel) {
         // Client supprimé
         localStorage.removeItem('current_user');
-        toast({
-          title: "Compte supprimé",
-          description: "Votre compte a été supprimé par l'administrateur.",
-          variant: "destructive"
-        });
         navigate('/login');
         return;
       }
@@ -51,31 +46,8 @@ const Dashboard: React.FC = () => {
       if (clientActuel.statut !== 'actif') {
         // Client désactivé
         localStorage.removeItem('current_user');
-        toast({
-          title: "Compte désactivé",
-          description: "Votre compte a été désactivé par l'administrateur.",
-          variant: "destructive"
-        });
         navigate('/login');
         return;
-      }
-
-      // Vérifier l'expiration
-      if (clientActuel.dateExpiration) {
-        const dateExpiration = new Date(clientActuel.dateExpiration);
-        const maintenant = new Date();
-        
-        if (maintenant > dateExpiration) {
-          // Abonnement expiré
-          localStorage.removeItem('current_user');
-          toast({
-            title: "Abonnement expiré",
-            description: "Votre abonnement a expiré. Contactez l'administrateur.",
-            variant: "destructive"
-          });
-          navigate('/login');
-          return;
-        }
       }
 
       // Mettre à jour les données utilisateur si nécessaire
@@ -84,37 +56,6 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [navigate]);
-
-  // Calculer les jours restants d'abonnement
-  const getSubscriptionStatus = () => {
-    const currentUser = localStorage.getItem('current_user');
-    if (!currentUser) return null;
-
-    const user = JSON.parse(currentUser);
-    if (!user.dateExpiration) return null;
-
-    const dateExpiration = new Date(user.dateExpiration);
-    const maintenant = new Date();
-    const joursRestants = Math.ceil((dateExpiration.getTime() - maintenant.getTime()) / (1000 * 60 * 60 * 24));
-
-    return {
-      dateExpiration: dateExpiration.toLocaleDateString('fr-FR'),
-      joursRestants,
-      isExpiringSoon: joursRestants <= 7 && joursRestants > 0,
-      isExpired: joursRestants <= 0
-    };
-  };
-
-  const subscriptionStatus = getSubscriptionStatus();
-
-  const handleReactivateSubscription = () => {
-    const currentUser = localStorage.getItem('current_user');
-    if (!currentUser) return;
-
-    const user = JSON.parse(currentUser);
-    const message = `Bonjour, je souhaite réactiver mon abonnement AfriKassa.%0A%0ANom: ${user.nom}%0AUtilisateur: ${user.username}%0A%0AMerci de m'aider à renouveler mon accès.`;
-    window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
-  };
 
   return (
     <div className="space-y-6">
@@ -144,42 +85,6 @@ const Dashboard: React.FC = () => {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* Affichage du statut d'abonnement */}
-      {subscriptionStatus && (
-        <Alert className={`${subscriptionStatus.isExpiringSoon ? 'border-orange-500 bg-orange-50' : 'border-green-500 bg-green-50'}`}>
-          <div className="flex items-center gap-2">
-            {subscriptionStatus.isExpiringSoon ? (
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-            ) : (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            )}
-            <div className="flex-1">
-              <AlertDescription className={`${subscriptionStatus.isExpiringSoon ? 'text-orange-800' : 'text-green-800'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <strong>Statut d'abonnement :</strong> 
-                    {subscriptionStatus.isExpiringSoon 
-                      ? ` ⚠️ Expire dans ${subscriptionStatus.joursRestants} jour${subscriptionStatus.joursRestants > 1 ? 's' : ''} (${subscriptionStatus.dateExpiration})`
-                      : ` ✅ Actif jusqu'au ${subscriptionStatus.dateExpiration} (${subscriptionStatus.joursRestants} jours restants)`
-                    }
-                  </div>
-                  {subscriptionStatus.isExpiringSoon && (
-                    <Button 
-                      size="sm" 
-                      onClick={handleReactivateSubscription}
-                      className="ml-4 bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Réactiver
-                    </Button>
-                  )}
-                </div>
-              </AlertDescription>
-            </div>
-          </div>
-        </Alert>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
