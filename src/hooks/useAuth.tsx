@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
 
-      // Récupérer l'utilisateur par username depuis notre table users
+      // Pour les clients : d'abord récupérer les infos depuis la table users
       const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
 
-      // Utiliser l'email pour la connexion Supabase
+      // Vérifier si l'email est configuré
       if (!userRecord.email) {
         toast({
           title: "Erreur de configuration",
@@ -170,22 +170,44 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Essayer de se connecter avec Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: userRecord.email,
         password: password,
       });
 
-      if (error) {
-        console.error('Erreur de connexion:', error);
-        toast({
-          title: "Échec de la connexion",
-          description: "Mot de passe incorrect",
-          variant: "destructive"
-        });
+      if (authError) {
+        console.error('Erreur de connexion Supabase:', authError);
+        
+        // Si le compte n'existe pas dans Auth mais existe dans notre DB
+        if (authError.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Compte non activé",
+            description: "Votre compte n'a pas encore été confirmé. Vérifiez votre email ou contactez l'administrateur.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Échec de la connexion",
+            description: "Mot de passe incorrect ou compte non confirmé",
+            variant: "destructive"
+          });
+        }
         return false;
       }
 
-      if (data.user) {
+      if (authData.user) {
+        // Mise à jour des métadonnées utilisateur si nécessaire
+        if (!authData.user.user_metadata?.username) {
+          await supabase.auth.updateUser({
+            data: {
+              username: userRecord.username,
+              nom: userRecord.nom,
+              role: userRecord.role || 'client'
+            }
+          });
+        }
+
         toast({
           title: "Connexion réussie",
           description: `Bienvenue ${userRecord.nom} !`,
