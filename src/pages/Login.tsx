@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,13 +18,10 @@ const Login: React.FC = () => {
   // Redirection automatique si déjà connecté
   useEffect(() => {
     if (user) {
-      if (isCreator) {
-        navigate('/dashboard');
-      } else {
-        navigate('/caisse');
-      }
+      // Tous les utilisateurs vont sur le dashboard
+      navigate('/dashboard');
     }
-  }, [user, isCreator, navigate]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +41,8 @@ const Login: React.FC = () => {
       const success = await signIn(username, password);
       
       if (success) {
-        // Redirection vers la page caisse pour les utilisateurs normaux
-        navigate('/caisse');
+        // Redirection vers le dashboard pour tous les utilisateurs
+        navigate('/dashboard');
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);

@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
@@ -27,12 +26,6 @@ const Dashboard: React.FC = () => {
     const currentUser = localStorage.getItem('current_user');
     if (!currentUser) {
       navigate('/login');
-      return;
-    }
-
-    // Rediriger les utilisateurs normaux vers la page caisse
-    if (!isCreator) {
-      navigate('/caisse');
       return;
     }
 
