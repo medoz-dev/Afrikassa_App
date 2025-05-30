@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import Landing from '@/pages/Landing';
 import Pricing from '@/pages/Pricing';
 import Login from '@/pages/Login';
+import CreatorPanel from '@/pages/CreatorPanel';
 import { Route, Routes } from 'react-router-dom';
 import Stock from '@/pages/Stock';
 import Ventes from '@/pages/Ventes';
@@ -26,6 +27,7 @@ const Index: React.FC = () => {
             <Layout>
               <Routes>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/creator-panel" element={<CreatorPanel />} />
                 <Route path="/stock" element={<Stock />} />
                 <Route path="/ventes" element={<Ventes />} />
                 <Route path="/caisse" element={<Caisse />} />

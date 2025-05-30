@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -18,10 +19,13 @@ const Login: React.FC = () => {
   // Redirection automatique si déjà connecté
   useEffect(() => {
     if (user) {
-      // Tous les utilisateurs vont sur le dashboard
-      navigate('/dashboard');
+      if (isCreator) {
+        navigate('/creator-panel');
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, isCreator, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,15 +38,14 @@ const Login: React.FC = () => {
           title: "Connexion créateur réussie",
           description: "Bienvenue dans le panneau créateur !",
         });
-        navigate('/dashboard');
+        navigate('/creator-panel');
         return;
       }
 
       const success = await signIn(username, password);
       
       if (success) {
-        // Redirection vers le dashboard pour tous les utilisateurs
-        navigate('/dashboard');
+        // La redirection sera gérée par l'effet useEffect ci-dessus
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);

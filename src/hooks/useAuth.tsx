@@ -135,7 +135,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
-      // Vérifier le statut du compte (sans vérification d'abonnement)
+      // Vérifier le statut du compte
       if (userRecord.statut !== 'actif') {
         toast({
           title: "Accès suspendu",
@@ -143,6 +143,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           variant: "destructive"
         });
         return false;
+      }
+
+      // Vérifier l'expiration
+      if (userRecord.date_expiration) {
+        const dateExpiration = new Date(userRecord.date_expiration);
+        const maintenant = new Date();
+        
+        if (maintenant > dateExpiration) {
+          toast({
+            title: "Abonnement expiré",
+            description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
+            variant: "destructive"
+          });
+          return false;
+        }
       }
 
       // Utiliser l'email pour la connexion Supabase
