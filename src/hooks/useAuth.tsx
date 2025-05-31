@@ -170,7 +170,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
-      // Essayer de se connecter avec Supabase Auth
+      // Essayer de se connecter avec Supabase Auth en utilisant l'email et le mot de passe de la DB
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: userRecord.email,
         password: password,
@@ -179,17 +179,70 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (authError) {
         console.error('Erreur de connexion Supabase:', authError);
         
-        // Si le compte n'existe pas dans Auth mais existe dans notre DB
+        // Si le compte n'existe pas dans Auth, le créer automatiquement
         if (authError.message.includes('Invalid login credentials')) {
-          toast({
-            title: "Compte non activé",
-            description: "Votre compte n'a pas encore été confirmé. Vérifiez votre email ou contactez l'administrateur.",
-            variant: "destructive"
-          });
+          console.log('Compte Auth inexistant, création automatique...');
+          
+          try {
+            // Créer le compte dans Supabase Auth avec le mot de passe saisi
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+              email: userRecord.email,
+              password: password,
+              options: {
+                emailRedirectTo: window.location.origin,
+                data: {
+                  username: userRecord.username,
+                  nom: userRecord.nom,
+                  role: userRecord.role || 'client'
+                }
+              }
+            });
+
+            if (signUpError) {
+              console.error('Erreur lors de la création auto du compte:', signUpError);
+              toast({
+                title: "Erreur de synchronisation",
+                description: "Impossible de créer le compte d'authentification. Contactez l'administrateur.",
+                variant: "destructive"
+              });
+              return false;
+            }
+
+            // Maintenant essayer de se connecter avec le compte nouvellement créé
+            const { data: newAuthData, error: newAuthError } = await supabase.auth.signInWithPassword({
+              email: userRecord.email,
+              password: password,
+            });
+
+            if (newAuthError) {
+              toast({
+                title: "Compte créé",
+                description: "Votre compte a été créé. Vérifiez votre email pour la confirmation, puis reconnectez-vous.",
+                variant: "default"
+              });
+              return false;
+            }
+
+            if (newAuthData.user) {
+              toast({
+                title: "Connexion réussie",
+                description: `Bienvenue ${userRecord.nom} !`,
+              });
+              return true;
+            }
+          } catch (createError) {
+            console.error('Erreur lors de la création automatique:', createError);
+            toast({
+              title: "Erreur",
+              description: "Problème lors de la création du compte. Contactez l'administrateur.",
+              variant: "destructive"
+            });
+            return false;
+          }
         } else {
           toast({
             title: "Échec de la connexion",
-            description: "Mot de passe incorrect ou compte non confirmé",
+            description: "Mot de passe incorrect",
             variant: "destructive"
           });
         }
