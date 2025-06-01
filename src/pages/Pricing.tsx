@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,8 +13,11 @@ const Pricing: React.FC = () => {
     window.open('https://web.facebook.com/melchior.melchior.2025', '_blank');
   };
 
-  const handlePurchase = (planType: string) => {
-    alert(`Après votre paiement ${planType}, vous recevrez vos identifiants de connexion par WhatsApp. Vous pourrez ensuite accéder à l'application via la page de connexion.`);
+  const handlePurchase = (planType: string, price?: number) => {
+    const message = `Bonjour ! Je souhaite souscrire à ${planType}${price ? ` au prix de ${price.toLocaleString()} FCFA` : ''}. Merci de me confirmer les modalités de paiement et de me fournir mes identifiants de connexion après paiement.`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/22961170017?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const lifetimeFeatures = [
@@ -130,9 +132,9 @@ const Pricing: React.FC = () => {
                   <Button 
                     size="lg" 
                     className="w-full text-lg py-6 bg-yellow-600 hover:bg-yellow-700"
-                    onClick={() => handlePurchase("de l'abonnement à vie")}
+                    onClick={() => handlePurchase("l'abonnement à vie", 250000)}
                   >
-                    Acheter l'Abonnement à Vie
+                    Choisir l'Abonnement à Vie
                   </Button>
                 </CardContent>
               </Card>
@@ -184,7 +186,7 @@ const Pricing: React.FC = () => {
                       size="sm" 
                       className={`w-full ${plan.popular ? 'bg-primary hover:bg-primary/90' : ''}`}
                       variant={plan.popular ? 'default' : 'outline'}
-                      onClick={() => handlePurchase(`de l'abonnement ${plan.duration}`)}
+                      onClick={() => handlePurchase(`l'abonnement ${plan.duration}`, plan.price)}
                     >
                       Choisir {plan.duration}
                     </Button>
