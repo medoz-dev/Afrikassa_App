@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,24 +62,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Pour le créateur, on utilise un système local sans Supabase
         console.log('Connexion créateur détectée');
         
-        // Créer une session locale pour le créateur
-        const creatorUser = {
+        // Créer une session locale pour le créateur avec toutes les propriétés requises
+        const creatorUser: User = {
           id: 'creator-local',
+          aud: 'authenticated',
+          role: 'authenticated',
           email: `creator-${username}@afrikassa.local`,
+          email_confirmed_at: new Date().toISOString(),
+          phone: '',
+          confirmed_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          app_metadata: {
+            provider: 'local',
+            providers: ['local']
+          },
           user_metadata: {
             username: username,
             nom: 'Créateur AfriKassa',
             role: 'creator'
-          }
-        } as User;
+          },
+          identities: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
 
-        const creatorSession = {
-          user: creatorUser,
+        const creatorSession: Session = {
           access_token: 'creator-local-token',
           refresh_token: 'creator-local-refresh',
-          expires_at: Date.now() + (24 * 60 * 60 * 1000), // 24h
-          token_type: 'bearer'
-        } as Session;
+          expires_in: 24 * 60 * 60, // 24h en secondes
+          expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // timestamp en secondes
+          token_type: 'bearer',
+          user: creatorUser
+        };
 
         setUser(creatorUser);
         setSession(creatorSession);
