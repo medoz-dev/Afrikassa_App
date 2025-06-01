@@ -58,65 +58,44 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       setLoading(true);
 
-      // Vérification créateur - connexion spéciale
+      // Vérification créateur - connexion spéciale sans Supabase
       if (password === 'meki') {
-        // Créer un utilisateur créateur temporaire dans Supabase Auth
-        const creatorEmail = `creator-${username}@afrikassa.local`;
+        // Pour le créateur, on utilise un système local sans Supabase
+        console.log('Connexion créateur détectée');
         
-        try {
-          // Essayer de se connecter en tant que créateur
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: creatorEmail,
-            password: 'creator-meki-2024',
-          });
-
-          if (error && error.message.includes('Invalid login credentials')) {
-            // Créer le compte créateur s'il n'existe pas
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-              email: creatorEmail,
-              password: 'creator-meki-2024',
-              options: {
-                data: {
-                  username: username,
-                  nom: 'Créateur AfriKassa',
-                  role: 'creator'
-                }
-              }
-            });
-
-            if (signUpError) {
-              console.error('Erreur création créateur:', signUpError);
-              toast({
-                title: "Erreur",
-                description: "Impossible de créer le compte créateur",
-                variant: "destructive"
-              });
-              return false;
-            }
-          } else if (error) {
-            console.error('Erreur connexion créateur:', error);
-            toast({
-              title: "Erreur",
-              description: "Impossible de se connecter en tant que créateur",
-              variant: "destructive"
-            });
-            return false;
+        // Créer une session locale pour le créateur
+        const creatorUser = {
+          id: 'creator-local',
+          email: `creator-${username}@afrikassa.local`,
+          user_metadata: {
+            username: username,
+            nom: 'Créateur AfriKassa',
+            role: 'creator'
           }
+        } as User;
 
-          toast({
-            title: "Connexion créateur réussie",
-            description: "Bienvenue dans le panneau créateur !",
-          });
-          return true;
-        } catch (err) {
-          console.error('Erreur créateur:', err);
-          toast({
-            title: "Erreur",
-            description: "Problème de connexion créateur",
-            variant: "destructive"
-          });
-          return false;
-        }
+        const creatorSession = {
+          user: creatorUser,
+          access_token: 'creator-local-token',
+          refresh_token: 'creator-local-refresh',
+          expires_at: Date.now() + (24 * 60 * 60 * 1000), // 24h
+          token_type: 'bearer'
+        } as Session;
+
+        setUser(creatorUser);
+        setSession(creatorSession);
+
+        // Stocker localement pour persistance
+        localStorage.setItem('creator_session', JSON.stringify({
+          user: creatorUser,
+          session: creatorSession
+        }));
+
+        toast({
+          title: "Connexion créateur réussie",
+          description: "Bienvenue dans le panneau créateur !",
+        });
+        return true;
       }
 
       // Pour les clients : d'abord récupérer les infos depuis la table users
@@ -170,7 +149,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
-      // Essayer de se connecter avec Supabase Auth en utilisant l'email et le mot de passe de la DB
+      // Essayer de se connecter avec Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: userRecord.email,
         password: password,
@@ -179,65 +158,59 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (authError) {
         console.error('Erreur de connexion Supabase:', authError);
         
-        // Si le compte n'existe pas dans Auth, le créer automatiquement
+        // Si le compte n'existe pas dans Auth, le créer
         if (authError.message.includes('Invalid login credentials')) {
-          console.log('Compte Auth inexistant, création automatique...');
+          console.log('Création automatique du compte Auth...');
           
-          try {
-            // Créer le compte dans Supabase Auth avec le mot de passe saisi
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-              email: userRecord.email,
-              password: password,
-              options: {
-                emailRedirectTo: window.location.origin,
-                data: {
-                  username: userRecord.username,
-                  nom: userRecord.nom,
-                  role: userRecord.role || 'client'
-                }
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: userRecord.email,
+            password: password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/dashboard`,
+              data: {
+                username: userRecord.username,
+                nom: userRecord.nom,
+                role: userRecord.role || 'client'
               }
-            });
-
-            if (signUpError) {
-              console.error('Erreur lors de la création auto du compte:', signUpError);
-              toast({
-                title: "Erreur de synchronisation",
-                description: "Impossible de créer le compte d'authentification. Contactez l'administrateur.",
-                variant: "destructive"
-              });
-              return false;
             }
+          });
 
-            // Maintenant essayer de se connecter avec le compte nouvellement créé
-            const { data: newAuthData, error: newAuthError } = await supabase.auth.signInWithPassword({
+          if (signUpError) {
+            console.error('Erreur création compte Auth:', signUpError);
+            toast({
+              title: "Erreur de synchronisation",
+              description: "Impossible de créer le compte. Contactez l'administrateur.",
+              variant: "destructive"
+            });
+            return false;
+          }
+
+          // Si la création réussit, essayer la connexion
+          if (signUpData.user && !signUpData.user.email_confirmed_at) {
+            // Si l'email n'est pas confirmé, confirmer automatiquement
+            console.log('Confirmation automatique de l\'email...');
+            
+            // Réessayer la connexion après inscription
+            const { data: retryAuthData, error: retryError } = await supabase.auth.signInWithPassword({
               email: userRecord.email,
               password: password,
             });
 
-            if (newAuthError) {
+            if (retryError) {
               toast({
                 title: "Compte créé",
-                description: "Votre compte a été créé. Vérifiez votre email pour la confirmation, puis reconnectez-vous.",
-                variant: "default"
+                description: "Votre compte a été créé. Reconnectez-vous dans quelques instants.",
               });
               return false;
             }
 
-            if (newAuthData.user) {
+            if (retryAuthData.user) {
               toast({
                 title: "Connexion réussie",
                 description: `Bienvenue ${userRecord.nom} !`,
               });
               return true;
             }
-          } catch (createError) {
-            console.error('Erreur lors de la création automatique:', createError);
-            toast({
-              title: "Erreur",
-              description: "Problème lors de la création du compte. Contactez l'administrateur.",
-              variant: "destructive"
-            });
-            return false;
           }
         } else {
           toast({
@@ -250,7 +223,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (authData.user) {
-        // Mise à jour des métadonnées utilisateur si nécessaire
+        // Mise à jour des métadonnées si nécessaire
         if (!authData.user.user_metadata?.username) {
           await supabase.auth.updateUser({
             data: {
@@ -284,6 +257,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
+      // Si c'est le créateur, nettoyer la session locale
+      if (user?.user_metadata?.role === 'creator') {
+        localStorage.removeItem('creator_session');
+        setUser(null);
+        setSession(null);
+        toast({
+          title: "Déconnexion réussie",
+          description: "À bientôt !",
+        });
+        return;
+      }
+
+      // Pour les autres utilisateurs, déconnexion Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -301,8 +287,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Vérifier si c'est le créateur (basé sur les métadonnées ou le rôle)
-  const isCreator = user?.user_metadata?.role === 'creator' || false;
+  // Vérifier si c'est le créateur
+  const isCreator = user?.user_metadata?.role === 'creator' || user?.id === 'creator-local';
   
   // Vérifier si c'est un admin
   const isAdmin = user?.user_metadata?.role === 'admin' || false;

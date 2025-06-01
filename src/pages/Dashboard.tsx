@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
@@ -15,14 +16,20 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { isCreator } = useAuth();
   const { 
     stockTotal, 
     arrivageTotal, 
     venteTheorique 
   } = useAppContext();
 
-  // Vérifier l'état du client à chaque chargement du dashboard
+  // Vérifier l'état du client à chaque chargement du dashboard (sauf pour le créateur)
   useEffect(() => {
+    // Ignorer les vérifications pour le créateur
+    if (isCreator) {
+      return;
+    }
+
     const currentUser = localStorage.getItem('current_user');
     if (!currentUser) {
       navigate('/login');
@@ -83,10 +90,15 @@ const Dashboard: React.FC = () => {
         localStorage.setItem('current_user', JSON.stringify(clientActuel));
       }
     }
-  }, [navigate]);
+  }, [navigate, isCreator]);
 
-  // Calculer les jours restants d'abonnement
+  // Calculer les jours restants d'abonnement (seulement pour les clients)
   const getSubscriptionStatus = () => {
+    // Ne pas afficher de statut d'abonnement pour le créateur
+    if (isCreator) {
+      return null;
+    }
+
     const currentUser = localStorage.getItem('current_user');
     if (!currentUser) return null;
 
@@ -119,7 +131,9 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Tableau de Bord</h1>
+        <h1 className="text-2xl font-bold">
+          {isCreator ? 'Tableau de Bord - Mode Créateur' : 'Tableau de Bord'}
+        </h1>
         
         <Dialog>
           <DialogTrigger asChild>
@@ -145,8 +159,8 @@ const Dashboard: React.FC = () => {
         </Dialog>
       </div>
 
-      {/* Affichage du statut d'abonnement */}
-      {subscriptionStatus && (
+      {/* Affichage du statut d'abonnement seulement pour les clients */}
+      {subscriptionStatus && !isCreator && (
         <Alert className={`${subscriptionStatus.isExpiringSoon ? 'border-orange-500 bg-orange-50' : 'border-green-500 bg-green-50'}`}>
           <div className="flex items-center gap-2">
             {subscriptionStatus.isExpiringSoon ? (
@@ -178,6 +192,16 @@ const Dashboard: React.FC = () => {
               </AlertDescription>
             </div>
           </div>
+        </Alert>
+      )}
+
+      {/* Message spécial pour le créateur */}
+      {isCreator && (
+        <Alert className="border-blue-500 bg-blue-50">
+          <CheckCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <strong>Mode Créateur Actif</strong> - Accès illimité à toutes les fonctionnalités
+          </AlertDescription>
         </Alert>
       )}
 
