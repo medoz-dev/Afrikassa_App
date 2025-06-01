@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Key, User, Database } from 'lucide-react';
+import { Trash2, Plus, Key, User, Database, Users, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface Client {
   id: string;
@@ -22,6 +24,7 @@ interface Client {
 }
 
 const CreatorPanel: React.FC = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [nouveauClient, setNouveauClient] = useState({
     nom: '',
@@ -276,12 +279,22 @@ const CreatorPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <User className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients avec authentification universelle</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <User className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">Panneau Créateur</h1>
+            <p className="text-gray-600">Gestion des comptes clients avec authentification universelle</p>
+          </div>
         </div>
+        
+        <Button 
+          onClick={() => navigate('/clients-list')}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Voir tous les clients
+        </Button>
       </div>
 
       {/* Formulaire d'ajout de client */}
@@ -367,12 +380,23 @@ const CreatorPanel: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Liste des clients */}
+      {/* Liste des clients récents */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Liste des clients ({clients.length})
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Derniers clients créés ({clients.slice(0, 5).length})
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/clients-list')}
+              className="flex items-center gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              Voir tout
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -393,7 +417,7 @@ const CreatorPanel: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clients.map((client) => {
+                  {clients.slice(0, 5).map((client) => {
                     const joursRestants = client.dateExpiration ? calculerJoursRestants(client.dateExpiration) : null;
                     const isExpired = joursRestants !== null && joursRestants <= 0;
                     const isExpiringSoon = joursRestants !== null && joursRestants > 0 && joursRestants <= 7;
