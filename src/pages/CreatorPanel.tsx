@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,8 @@ interface Client {
   username: string;
   password: string;
   dateCreation: string;
-  dateExpiration?: string;
-  dureeAbonnement: number;
+  abonnement_actif: boolean;
+  jours_restants: number;
   statut: 'actif' | 'inactif';
 }
 
@@ -28,10 +29,10 @@ const CreatorPanel: React.FC = () => {
     email: '',
     username: '',
     password: '',
-    dureeAbonnement: 30
+    jours_restants: 30
   });
 
-  // Charger les clients depuis Supabase
+  // Charger les clients depuis la base de données
   const chargerClients = async () => {
     try {
       const { data, error } = await supabase
@@ -49,9 +50,8 @@ const CreatorPanel: React.FC = () => {
         username: user.username,
         password: '********', // Ne pas exposer le mot de passe hashé
         dateCreation: new Date(user.date_creation).toLocaleDateString('fr-FR'),
-        dateExpiration: user.date_expiration,
-        dureeAbonnement: user.date_expiration ? 
-          Math.ceil((new Date(user.date_expiration).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0,
+        abonnement_actif: user.abonnement_actif,
+        jours_restants: user.jours_restants || 0,
         statut: user.statut as 'actif' | 'inactif'
       }));
 
@@ -80,14 +80,7 @@ const CreatorPanel: React.FC = () => {
     setNouveauClient({ ...nouveauClient, password: motDePasse });
   };
 
-  // Calculer la date d'expiration
-  const calculerDateExpiration = (dureeJours: number) => {
-    const maintenant = new Date();
-    const dateExpiration = new Date(maintenant.getTime() + (dureeJours * 24 * 60 * 60 * 1000));
-    return dateExpiration.toISOString();
-  };
-
-  // Ajouter un nouveau client (méthode simplifiée)
+  // Ajouter un nouveau client
   const ajouterClient = async () => {
     if (!nouveauClient.nom || !nouveauClient.email || !nouveauClient.username || !nouveauClient.password) {
       toast({
@@ -115,62 +108,58 @@ const CreatorPanel: React.FC = () => {
         return;
       }
 
-      const dateExpiration = calculerDateExpiration(nouveauClient.dureeAbonnement);
+      // Hasher le mot de passe avec la fonction Supabase
+      const { data: hashedPassword, error: hashError } = await supabase
+        .rpc('hash_password', { password: nouveauClient.password });
 
-      // Créer l'utilisateur directement via Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: nouveauClient.email,
-        password: nouveauClient.password,
-        options: {
-          data: {
-            username: nouveauClient.username,
-            nom: nouveauClient.nom,
-            role: 'client'
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Erreur Auth:', authError);
+      if (hashError) {
+        console.error('Erreur lors du hachage:', hashError);
         toast({
           title: "Erreur",
-          description: `Erreur lors de la création du compte: ${authError.message}`,
+          description: "Erreur lors de la création du mot de passe",
           variant: "destructive"
         });
         return;
       }
 
-      if (authData.user) {
-        // Insérer dans notre table users avec l'ID du compte Auth
-        const { error: dbError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            nom: nouveauClient.nom,
-            email: nouveauClient.email,
-            username: nouveauClient.username,
-            password_hash: 'managed_by_auth',
-            role: 'client',
-            statut: 'actif',
-            date_expiration: dateExpiration
-          });
-
-        if (dbError) {
-          console.error('Erreur DB:', dbError);
-          toast({
-            title: "Avertissement",
-            description: "Compte créé mais données non synchronisées. Le client peut se connecter.",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Client ajouté",
-            description: `Client ${nouveauClient.nom} ajouté avec succès (${nouveauClient.dureeAbonnement} jours)`,
-          });
-        }
+      // Calculer la date d'expiration si nécessaire
+      let dateExpiration = null;
+      if (nouveauClient.jours_restants > 0) {
+        const maintenant = new Date();
+        dateExpiration = new Date(maintenant.getTime() + (nouveauClient.jours_restants * 24 * 60 * 60 * 1000));
       }
 
-      setNouveauClient({ nom: '', email: '', username: '', password: '', dureeAbonnement: 30 });
+      // Insérer le nouveau client
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          nom: nouveauClient.nom,
+          email: nouveauClient.email,
+          username: nouveauClient.username,
+          password_hash: hashedPassword,
+          role: 'client',
+          statut: 'actif',
+          abonnement_actif: true,
+          jours_restants: nouveauClient.jours_restants,
+          date_expiration: dateExpiration?.toISOString()
+        });
+
+      if (insertError) {
+        console.error('Erreur lors de l\'insertion:', insertError);
+        toast({
+          title: "Erreur",
+          description: "Erreur lors de l'ajout du client",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Client ajouté",
+        description: `Client ${nouveauClient.nom} ajouté avec succès`,
+      });
+
+      setNouveauClient({ nom: '', email: '', username: '', password: '', jours_restants: 30 });
       await chargerClients();
 
     } catch (error) {
@@ -214,7 +203,10 @@ const CreatorPanel: React.FC = () => {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ statut: nouveauStatut })
+        .update({ 
+          statut: nouveauStatut,
+          abonnement_actif: nouveauStatut === 'actif'
+        })
         .eq('id', id);
 
       if (error) throw error;
@@ -238,12 +230,15 @@ const CreatorPanel: React.FC = () => {
   // Prolonger l'abonnement d'un client
   const prolongerAbonnement = async (id: string, nouveauxJours: number) => {
     try {
-      const nouvelleDateExpiration = calculerDateExpiration(nouveauxJours);
+      const maintenant = new Date();
+      const nouvelleDateExpiration = new Date(maintenant.getTime() + (nouveauxJours * 24 * 60 * 60 * 1000));
       
       const { error } = await supabase
         .from('users')
         .update({ 
-          date_expiration: nouvelleDateExpiration,
+          date_expiration: nouvelleDateExpiration.toISOString(),
+          jours_restants: nouveauxJours,
+          abonnement_actif: true,
           statut: 'actif'
         })
         .eq('id', id);
@@ -266,21 +261,13 @@ const CreatorPanel: React.FC = () => {
     }
   };
 
-  // Calculer les jours restants
-  const calculerJoursRestants = (dateExpiration: string) => {
-    const maintenant = new Date();
-    const expiration = new Date(dateExpiration);
-    const joursRestants = Math.ceil((expiration.getTime() - maintenant.getTime()) / (1000 * 60 * 60 * 24));
-    return joursRestants;
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-6">
         <User className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients avec authentification universelle</p>
+          <p className="text-gray-600">Gestion des comptes clients avec stockage direct en base de données</p>
         </div>
       </div>
 
@@ -341,10 +328,10 @@ const CreatorPanel: React.FC = () => {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="duree">Durée d'abonnement</Label>
+              <Label htmlFor="duree">Durée d'abonnement (jours)</Label>
               <Select 
-                value={nouveauClient.dureeAbonnement.toString()} 
-                onValueChange={(value) => setNouveauClient({ ...nouveauClient, dureeAbonnement: parseInt(value) })}
+                value={nouveauClient.jours_restants.toString()} 
+                onValueChange={(value) => setNouveauClient({ ...nouveauClient, jours_restants: parseInt(value) })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionner la durée" />
@@ -355,6 +342,7 @@ const CreatorPanel: React.FC = () => {
                   <SelectItem value="90">90 jours (3 mois)</SelectItem>
                   <SelectItem value="180">180 jours (6 mois)</SelectItem>
                   <SelectItem value="365">365 jours (1 an)</SelectItem>
+                  <SelectItem value="-1">Illimité</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -394,9 +382,8 @@ const CreatorPanel: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {clients.map((client) => {
-                    const joursRestants = client.dateExpiration ? calculerJoursRestants(client.dateExpiration) : null;
-                    const isExpired = joursRestants !== null && joursRestants <= 0;
-                    const isExpiringSoon = joursRestants !== null && joursRestants > 0 && joursRestants <= 7;
+                    const isExpired = !client.abonnement_actif;
+                    const isExpiringSoon = client.abonnement_actif && client.jours_restants > 0 && client.jours_restants <= 7;
                     
                     return (
                       <TableRow key={client.id}>
@@ -407,17 +394,11 @@ const CreatorPanel: React.FC = () => {
                         <TableCell>
                           <div className="space-y-1">
                             <div className={`text-sm ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
-                              {joursRestants !== null ? (
-                                isExpired ? '❌ Expiré' : 
-                                isExpiringSoon ? `⚠️ ${joursRestants} jour${joursRestants > 1 ? 's' : ''}` :
-                                `✅ ${joursRestants} jours`
-                              ) : 'Non défini'}
+                              {isExpired ? '❌ Expiré' : 
+                               client.jours_restants === -1 ? '✅ Illimité' :
+                               isExpiringSoon ? `⚠️ ${client.jours_restants} jour${client.jours_restants > 1 ? 's' : ''}` :
+                               `✅ ${client.jours_restants} jours`}
                             </div>
-                            {client.dateExpiration && (
-                              <div className="text-xs text-gray-500">
-                                Jusqu'au {new Date(client.dateExpiration).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
                             <div className="flex gap-1">
                               <Button
                                 size="sm"

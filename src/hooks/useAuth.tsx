@@ -1,11 +1,21 @@
+
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
+interface UserData {
+  id: string;
+  username: string;
+  nom: string;
+  email: string;
+  role: string;
+  abonnement_actif: boolean;
+  jours_restants: number;
+  date_expiration?: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: UserData | null;
   loading: boolean;
   signIn: (username: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -28,80 +38,48 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Configuration de l'écoute des changements d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    // Vérifier s'il y a une session locale au démarrage
+    const localSession = localStorage.getItem('afrikassa_session');
+    if (localSession) {
+      try {
+        const sessionData = JSON.parse(localSession);
+        setUser(sessionData.user);
+      } catch (error) {
+        console.error('Erreur lors de la lecture de la session locale:', error);
+        localStorage.removeItem('afrikassa_session');
       }
-    );
-
-    // Vérification de la session existante
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
   const signIn = async (username: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
 
-      // Vérification créateur - connexion spéciale sans Supabase
+      // Vérification créateur - connexion spéciale
       if (password === 'meki') {
-        // Pour le créateur, on utilise un système local sans Supabase
         console.log('Connexion créateur détectée');
         
-        // Créer une session locale pour le créateur avec toutes les propriétés requises
-        const creatorUser: User = {
+        const creatorUser: UserData = {
           id: 'creator-local',
-          aud: 'authenticated',
-          role: 'authenticated',
+          username: username,
+          nom: 'Créateur AfriKassa',
           email: `creator-${username}@afrikassa.local`,
-          email_confirmed_at: new Date().toISOString(),
-          phone: '',
-          confirmed_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          app_metadata: {
-            provider: 'local',
-            providers: ['local']
-          },
-          user_metadata: {
-            username: username,
-            nom: 'Créateur AfriKassa',
-            role: 'creator'
-          },
-          identities: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        const creatorSession: Session = {
-          access_token: 'creator-local-token',
-          refresh_token: 'creator-local-refresh',
-          expires_in: 24 * 60 * 60, // 24h en secondes
-          expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // timestamp en secondes
-          token_type: 'bearer',
-          user: creatorUser
+          role: 'creator',
+          abonnement_actif: true,
+          jours_restants: -1 // Illimité pour le créateur
         };
 
         setUser(creatorUser);
-        setSession(creatorSession);
 
-        // Stocker localement pour persistance
-        localStorage.setItem('creator_session', JSON.stringify({
+        // Stocker la session localement
+        localStorage.setItem('afrikassa_session', JSON.stringify({
           user: creatorUser,
-          session: creatorSession
+          timestamp: Date.now()
         }));
 
         toast({
@@ -111,7 +89,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return true;
       }
 
-      // Pour les clients : d'abord récupérer les infos depuis la table users
+      // Pour les clients : vérifier directement dans la base de données
       const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -127,6 +105,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
+      // Vérifier le mot de passe avec la fonction Supabase
+      const { data: passwordCheck, error: passwordError } = await supabase
+        .rpc('verify_password', {
+          password: password,
+          hash: userRecord.password_hash
+        });
+
+      if (passwordError || !passwordCheck) {
+        toast({
+          title: "Échec de la connexion",
+          description: "Mot de passe incorrect",
+          variant: "destructive"
+        });
+        return false;
+      }
+
       // Vérifier le statut du compte
       if (userRecord.statut !== 'actif') {
         toast({
@@ -137,12 +131,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
 
-      // Vérifier l'expiration
+      // Vérifier l'abonnement
+      if (!userRecord.abonnement_actif) {
+        toast({
+          title: "Abonnement inactif",
+          description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Vérifier l'expiration si définie
       if (userRecord.date_expiration) {
         const dateExpiration = new Date(userRecord.date_expiration);
         const maintenant = new Date();
         
         if (maintenant > dateExpiration) {
+          // Désactiver automatiquement l'abonnement
+          await supabase
+            .from('users')
+            .update({ abonnement_actif: false, jours_restants: 0 })
+            .eq('id', userRecord.id);
+
           toast({
             title: "Abonnement expiré",
             description: "Votre abonnement a expiré. Contactez l'administrateur pour le renouveler.",
@@ -152,109 +162,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
 
-      // Vérifier si l'email est configuré
-      if (!userRecord.email) {
-        toast({
-          title: "Erreur de configuration",
-          description: "Aucun email associé à ce compte. Contactez l'administrateur.",
-          variant: "destructive"
-        });
-        return false;
-      }
+      // Créer l'objet utilisateur
+      const userData: UserData = {
+        id: userRecord.id,
+        username: userRecord.username,
+        nom: userRecord.nom,
+        email: userRecord.email || '',
+        role: userRecord.role,
+        abonnement_actif: userRecord.abonnement_actif,
+        jours_restants: userRecord.jours_restants || 0,
+        date_expiration: userRecord.date_expiration
+      };
 
-      // Essayer de se connecter avec Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: userRecord.email,
-        password: password,
+      setUser(userData);
+
+      // Stocker la session localement
+      localStorage.setItem('afrikassa_session', JSON.stringify({
+        user: userData,
+        timestamp: Date.now()
+      }));
+
+      // Mettre à jour les informations de connexion
+      await supabase
+        .from('users')
+        .update({
+          is_online: true,
+          last_login: new Date().toISOString(),
+          login_count: (userRecord.login_count || 0) + 1
+        })
+        .eq('id', userRecord.id);
+
+      toast({
+        title: "Connexion réussie",
+        description: `Bienvenue ${userRecord.nom} !`,
       });
+      return true;
 
-      if (authError) {
-        console.error('Erreur de connexion Supabase:', authError);
-        
-        // Si le compte n'existe pas dans Auth, le créer
-        if (authError.message.includes('Invalid login credentials')) {
-          console.log('Création automatique du compte Auth...');
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: userRecord.email,
-            password: password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/dashboard`,
-              data: {
-                username: userRecord.username,
-                nom: userRecord.nom,
-                role: userRecord.role || 'client'
-              }
-            }
-          });
-
-          if (signUpError) {
-            console.error('Erreur création compte Auth:', signUpError);
-            toast({
-              title: "Erreur de synchronisation",
-              description: "Impossible de créer le compte. Contactez l'administrateur.",
-              variant: "destructive"
-            });
-            return false;
-          }
-
-          // Si la création réussit, essayer la connexion
-          if (signUpData.user && !signUpData.user.email_confirmed_at) {
-            // Si l'email n'est pas confirmé, confirmer automatiquement
-            console.log('Confirmation automatique de l\'email...');
-            
-            // Réessayer la connexion après inscription
-            const { data: retryAuthData, error: retryError } = await supabase.auth.signInWithPassword({
-              email: userRecord.email,
-              password: password,
-            });
-
-            if (retryError) {
-              toast({
-                title: "Compte créé",
-                description: "Votre compte a été créé. Reconnectez-vous dans quelques instants.",
-              });
-              return false;
-            }
-
-            if (retryAuthData.user) {
-              toast({
-                title: "Connexion réussie",
-                description: `Bienvenue ${userRecord.nom} !`,
-              });
-              return true;
-            }
-          }
-        } else {
-          toast({
-            title: "Échec de la connexion",
-            description: "Mot de passe incorrect",
-            variant: "destructive"
-          });
-        }
-        return false;
-      }
-
-      if (authData.user) {
-        // Mise à jour des métadonnées si nécessaire
-        if (!authData.user.user_metadata?.username) {
-          await supabase.auth.updateUser({
-            data: {
-              username: userRecord.username,
-              nom: userRecord.nom,
-              role: userRecord.role || 'client'
-            }
-          });
-        }
-
-        toast({
-          title: "Connexion réussie",
-          description: `Bienvenue ${userRecord.nom} !`,
-        });
-        return true;
-      }
-
-      return false;
     } catch (error) {
       console.error('Erreur lors de la connexion:', error);
       toast({
@@ -270,21 +213,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
-      // Si c'est le créateur, nettoyer la session locale
-      if (user?.user_metadata?.role === 'creator') {
-        localStorage.removeItem('creator_session');
-        setUser(null);
-        setSession(null);
-        toast({
-          title: "Déconnexion réussie",
-          description: "À bientôt !",
-        });
-        return;
+      // Mettre à jour le statut en ligne si ce n'est pas le créateur
+      if (user && user.role !== 'creator') {
+        await supabase
+          .from('users')
+          .update({ is_online: false })
+          .eq('id', user.id);
       }
 
-      // Pour les autres utilisateurs, déconnexion Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Nettoyer la session locale
+      localStorage.removeItem('afrikassa_session');
+      setUser(null);
       
       toast({
         title: "Déconnexion réussie",
@@ -301,14 +240,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Vérifier si c'est le créateur
-  const isCreator = user?.user_metadata?.role === 'creator' || user?.id === 'creator-local';
+  const isCreator = user?.role === 'creator';
   
   // Vérifier si c'est un admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || false;
+  const isAdmin = user?.role === 'admin';
 
   const value: AuthContextType = {
     user,
-    session,
     loading,
     signIn,
     signOut,

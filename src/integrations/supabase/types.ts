@@ -359,6 +359,7 @@ export type Database = {
       }
       users: {
         Row: {
+          abonnement_actif: boolean | null
           created_at: string
           date_creation: string
           date_expiration: string | null
@@ -366,6 +367,7 @@ export type Database = {
           email: string | null
           id: string
           is_online: boolean | null
+          jours_restants: number | null
           last_login: string | null
           login_count: number | null
           nom: string
@@ -376,6 +378,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          abonnement_actif?: boolean | null
           created_at?: string
           date_creation?: string
           date_expiration?: string | null
@@ -383,6 +386,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_online?: boolean | null
+          jours_restants?: number | null
           last_login?: string | null
           login_count?: number | null
           nom: string
@@ -393,6 +397,7 @@ export type Database = {
           username: string
         }
         Update: {
+          abonnement_actif?: boolean | null
           created_at?: string
           date_creation?: string
           date_expiration?: string | null
@@ -400,6 +405,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_online?: boolean | null
+          jours_restants?: number | null
           last_login?: string | null
           login_count?: number | null
           nom?: string
