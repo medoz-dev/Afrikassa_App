@@ -75,7 +75,7 @@ const ActivationCodesManager: React.FC = () => {
         code: newCodeValue,
         plan_type: newCode.plan_type,
         duration_days: newCode.duration_days,
-        created_by: 'creator-local', // ID du créateur
+        created_by: null, // Maintenant autorisé à être NULL
         max_uses: newCode.max_uses,
         current_uses: 0
       };
@@ -90,7 +90,10 @@ const ActivationCodesManager: React.FC = () => {
         .from('activation_codes')
         .insert(insertData);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Erreur lors de l\'insertion:', insertError);
+        throw insertError;
+      }
 
       toast({
         title: "Code généré !",

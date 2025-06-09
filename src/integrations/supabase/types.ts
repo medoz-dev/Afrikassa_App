@@ -13,7 +13,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
-          created_by: string
+          created_by: string | null
           current_uses: number | null
           duration_days: number
           expires_at: string | null
@@ -27,7 +27,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
           current_uses?: number | null
           duration_days?: number
           expires_at?: string | null
@@ -41,7 +41,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           current_uses?: number | null
           duration_days?: number
           expires_at?: string | null
