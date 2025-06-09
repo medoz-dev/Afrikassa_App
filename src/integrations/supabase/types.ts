@@ -9,6 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activation_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          current_uses: number | null
+          duration_days: number
+          expires_at: string | null
+          id: string
+          is_used: boolean
+          max_uses: number | null
+          plan_type: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          current_uses?: number | null
+          duration_days?: number
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean
+          max_uses?: number | null
+          plan_type?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          current_uses?: number | null
+          duration_days?: number
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean
+          max_uses?: number | null
+          plan_type?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activation_codes_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_actions: {
         Row: {
           action_type: string
@@ -468,6 +521,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      generate_activation_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       hash_password: {
         Args: { password: string }
         Returns: string
@@ -475,6 +532,21 @@ export type Database = {
       logout_session: {
         Args: { p_session_token: string }
         Returns: boolean
+      }
+      use_activation_code: {
+        Args: {
+          p_code: string
+          p_username: string
+          p_nom: string
+          p_email: string
+          p_password: string
+        }
+        Returns: {
+          success: boolean
+          message: string
+          user_id: string
+          user_data: Json
+        }[]
       }
       validate_session: {
         Args: { p_session_token: string }

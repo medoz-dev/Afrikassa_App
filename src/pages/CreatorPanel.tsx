@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Plus, Key, User, Database } from 'lucide-react';
+import { Trash2, Plus, Key, User, Database, Ticket } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import ActivationCodesManager from '@/components/creator/ActivationCodesManager';
 
 interface Client {
   id: string;
@@ -267,185 +268,204 @@ const CreatorPanel: React.FC = () => {
         <User className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Panneau Créateur</h1>
-          <p className="text-gray-600">Gestion des comptes clients avec stockage direct en base de données</p>
+          <p className="text-gray-600">Gestion des comptes clients et codes d'activation</p>
         </div>
       </div>
 
-      {/* Formulaire d'ajout de client */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Ajouter un nouveau client
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nom">Nom complet</Label>
-              <Input
-                id="nom"
-                placeholder="Nom du client"
-                value={nouveauClient.nom}
-                onChange={(e) => setNouveauClient({ ...nouveauClient, nom: e.target.value })}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@exemple.com"
-                value={nouveauClient.email}
-                onChange={(e) => setNouveauClient({ ...nouveauClient, email: e.target.value })}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="username">Nom d'utilisateur</Label>
-              <Input
-                id="username"
-                placeholder="nom_utilisateur"
-                value={nouveauClient.username}
-                onChange={(e) => setNouveauClient({ ...nouveauClient, username: e.target.value })}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="password"
-                  placeholder="Mot de passe"
-                  value={nouveauClient.password}
-                  onChange={(e) => setNouveauClient({ ...nouveauClient, password: e.target.value })}
-                />
-                <Button type="button" variant="outline" onClick={genererMotDePasse}>
-                  <Key className="h-4 w-4" />
-                </Button>
+      <Tabs defaultValue="clients" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="clients" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Clients
+          </TabsTrigger>
+          <TabsTrigger value="codes" className="flex items-center gap-2">
+            <Ticket className="h-4 w-4" />
+            Codes d'activation
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="clients" className="space-y-6">
+          {/* Formulaire d'ajout de client */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Ajouter un nouveau client
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nom">Nom complet</Label>
+                  <Input
+                    id="nom"
+                    placeholder="Nom du client"
+                    value={nouveauClient.nom}
+                    onChange={(e) => setNouveauClient({ ...nouveauClient, nom: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="email@exemple.com"
+                    value={nouveauClient.email}
+                    onChange={(e) => setNouveauClient({ ...nouveauClient, email: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="username">Nom d'utilisateur</Label>
+                  <Input
+                    id="username"
+                    placeholder="nom_utilisateur"
+                    value={nouveauClient.username}
+                    onChange={(e) => setNouveauClient({ ...nouveauClient, username: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="password"
+                      placeholder="Mot de passe"
+                      value={nouveauClient.password}
+                      onChange={(e) => setNouveauClient({ ...nouveauClient, password: e.target.value })}
+                    />
+                    <Button type="button" variant="outline" onClick={genererMotDePasse}>
+                      <Key className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="duree">Durée d'abonnement (jours)</Label>
+                  <Select 
+                    value={nouveauClient.jours_restants.toString()} 
+                    onValueChange={(value) => setNouveauClient({ ...nouveauClient, jours_restants: parseInt(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner la durée" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 jours (essai)</SelectItem>
+                      <SelectItem value="30">30 jours (1 mois)</SelectItem>
+                      <SelectItem value="90">90 jours (3 mois)</SelectItem>
+                      <SelectItem value="180">180 jours (6 mois)</SelectItem>
+                      <SelectItem value="365">365 jours (1 an)</SelectItem>
+                      <SelectItem value="-1">Illimité</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+              
+              <Button onClick={ajouterClient} className="mt-4">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter le client
+              </Button>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="duree">Durée d'abonnement (jours)</Label>
-              <Select 
-                value={nouveauClient.jours_restants.toString()} 
-                onValueChange={(value) => setNouveauClient({ ...nouveauClient, jours_restants: parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner la durée" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 jours (essai)</SelectItem>
-                  <SelectItem value="30">30 jours (1 mois)</SelectItem>
-                  <SelectItem value="90">90 jours (3 mois)</SelectItem>
-                  <SelectItem value="180">180 jours (6 mois)</SelectItem>
-                  <SelectItem value="365">365 jours (1 an)</SelectItem>
-                  <SelectItem value="-1">Illimité</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <Button onClick={ajouterClient} className="mt-4">
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter le client
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Liste des clients */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Liste des clients ({clients.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {clients.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">Aucun client enregistré</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Date création</TableHead>
-                    <TableHead>Abonnement</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {clients.map((client) => {
-                    const isExpired = !client.abonnement_actif;
-                    const isExpiringSoon = client.abonnement_actif && client.jours_restants > 0 && client.jours_restants <= 7;
-                    
-                    return (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">{client.nom}</TableCell>
-                        <TableCell>{client.email}</TableCell>
-                        <TableCell>{client.username}</TableCell>
-                        <TableCell>{client.dateCreation}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className={`text-sm ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
-                              {isExpired ? '❌ Expiré' : 
-                               client.jours_restants === -1 ? '✅ Illimité' :
-                               isExpiringSoon ? `⚠️ ${client.jours_restants} jour${client.jours_restants > 1 ? 's' : ''}` :
-                               `✅ ${client.jours_restants} jours`}
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => prolongerAbonnement(client.id, 30)}
-                                className="text-xs"
-                              >
-                                +30j
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => prolongerAbonnement(client.id, 90)}
-                                className="text-xs"
-                              >
-                                +90j
-                              </Button>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant={client.statut === 'actif' ? 'default' : 'secondary'}
-                            size="sm"
-                            onClick={() => changerStatut(client.id, client.statut === 'actif' ? 'inactif' : 'actif')}
-                          >
-                            {client.statut}
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => supprimerClient(client.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+          {/* Liste des clients */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Liste des clients ({clients.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {clients.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">Aucun client enregistré</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nom</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Username</TableHead>
+                        <TableHead>Date création</TableHead>
+                        <TableHead>Abonnement</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {clients.map((client) => {
+                        const isExpired = !client.abonnement_actif;
+                        const isExpiringSoon = client.abonnement_actif && client.jours_restants > 0 && client.jours_restants <= 7;
+                        
+                        return (
+                          <TableRow key={client.id}>
+                            <TableCell className="font-medium">{client.nom}</TableCell>
+                            <TableCell>{client.email}</TableCell>
+                            <TableCell>{client.username}</TableCell>
+                            <TableCell>{client.dateCreation}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className={`text-sm ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
+                                  {isExpired ? '❌ Expiré' : 
+                                   client.jours_restants === -1 ? '✅ Illimité' :
+                                   isExpiringSoon ? `⚠️ ${client.jours_restants} jour${client.jours_restants > 1 ? 's' : ''}` :
+                                   `✅ ${client.jours_restants} jours`}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => prolongerAbonnement(client.id, 30)}
+                                    className="text-xs"
+                                  >
+                                    +30j
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => prolongerAbonnement(client.id, 90)}
+                                    className="text-xs"
+                                  >
+                                    +90j
+                                  </Button>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant={client.statut === 'actif' ? 'default' : 'secondary'}
+                                size="sm"
+                                onClick={() => changerStatut(client.id, client.statut === 'actif' ? 'inactif' : 'actif')}
+                              >
+                                {client.statut}
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => supprimerClient(client.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="codes">
+          <ActivationCodesManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -67,9 +67,14 @@ const Login: React.FC = () => {
             <Package className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold text-primary">AfriKassa</span>
           </Link>
-          <Link to="/">
-            <Button variant="outline">Retour à l'accueil</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/register">
+              <Button variant="outline">S'inscrire</Button>
+            </Link>
+            <Link to="/">
+              <Button variant="outline">Retour à l'accueil</Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -138,9 +143,14 @@ const Login: React.FC = () => {
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="text-center space-y-4">
                 <p className="text-sm text-gray-600">
-                  Vous n'avez pas encore d'accès ?
+                  Vous n'avez pas encore de compte ?
                 </p>
                 <div className="space-y-3">
+                  <Link to="/register">
+                    <Button variant="outline" className="w-full">
+                      S'inscrire avec un code d'activation
+                    </Button>
+                  </Link>
                   <Link to="/pricing">
                     <Button variant="outline" className="w-full">
                       Acheter l'application
@@ -161,7 +171,7 @@ const Login: React.FC = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Pour obtenir vos identifiants, contactez-nous via WhatsApp
+            Pour obtenir un code d'activation, contactez-nous via WhatsApp
           </p>
           <p className="text-xs text-gray-500 mt-2">
             +229 61 17 00 17

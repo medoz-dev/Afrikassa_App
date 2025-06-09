@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import Landing from '@/pages/Landing';
 import Pricing from '@/pages/Pricing';
 import Login from '@/pages/Login';
+import Register from '@/pages/Register';
 import CreatorPanel from '@/pages/CreatorPanel';
 import { Route, Routes } from 'react-router-dom';
 import Stock from '@/pages/Stock';
@@ -22,6 +23,7 @@ const Index: React.FC = () => {
         <Route path="/" element={<Landing />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/*" element={
           <AppProvider>
             <Layout>
