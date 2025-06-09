@@ -55,7 +55,73 @@ const Register: React.FC = () => {
         return;
       }
 
-      // Utiliser le code d'activation
+      console.log('Tentative d\'activation avec le code:', formData.activationCode);
+
+      // Vérifier d'abord si le code d'activation existe et est valide
+      const { data: codeData, error: codeCheckError } = await supabase
+        .from('activation_codes')
+        .select('*')
+        .eq('code', formData.activationCode.toUpperCase())
+        .eq('is_used', false)
+        .single();
+
+      if (codeCheckError || !codeData) {
+        console.error('Code d\'activation non trouvé:', codeCheckError);
+        toast({
+          title: "Erreur",
+          description: "Code d'activation invalide ou déjà utilisé",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Vérifier si le code a expiré
+      if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+        toast({
+          title: "Erreur",
+          description: "Ce code d'activation a expiré",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Vérifier si le code a atteint le nombre maximum d'utilisations
+      if (codeData.current_uses >= codeData.max_uses) {
+        toast({
+          title: "Erreur",
+          description: "Ce code d'activation a déjà été utilisé le nombre maximum de fois",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Vérifier si l'username existe déjà
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', formData.username)
+        .maybeSingle();
+
+      if (userCheckError) {
+        console.error('Erreur lors de la vérification de l\'username:', userCheckError);
+        toast({
+          title: "Erreur",
+          description: "Erreur lors de la vérification du nom d'utilisateur",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (existingUser) {
+        toast({
+          title: "Erreur",
+          description: "Ce nom d'utilisateur existe déjà",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Utiliser le code d'activation avec la fonction RPC
       const { data, error } = await supabase
         .rpc('use_activation_code', {
           p_code: formData.activationCode.toUpperCase(),
@@ -69,7 +135,18 @@ const Register: React.FC = () => {
         console.error('Erreur lors de l\'activation:', error);
         toast({
           title: "Erreur",
-          description: "Erreur lors de l'activation du compte",
+          description: "Erreur lors de l'activation du compte: " + error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Résultat de l\'activation:', data);
+
+      if (!data || data.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Aucune réponse reçue du serveur",
           variant: "destructive"
         });
         return;
@@ -79,7 +156,7 @@ const Register: React.FC = () => {
       if (!result.success) {
         toast({
           title: "Erreur",
-          description: result.message,
+          description: result.message || "Erreur lors de l'activation",
           variant: "destructive"
         });
         return;
@@ -97,7 +174,7 @@ const Register: React.FC = () => {
       console.error('Erreur lors de l\'inscription:', error);
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors de l'inscription",
+        description: "Une erreur inattendue est survenue lors de l'inscription",
         variant: "destructive"
       });
     } finally {
