@@ -61,11 +61,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           .from('users')
           .insert({
             id: supabaseUser.id,
-            email: supabaseUser.email,
+            email: supabaseUser.email || '',
             nom: supabaseUser.user_metadata?.nom || supabaseUser.user_metadata?.full_name || 'Utilisateur',
-            username: supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0],
+            username: supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user',
             role: 'client',
-            subscription_status: 'free'
+            subscription_status: 'free',
+            password_hash: 'oauth_user' // Valeur par défaut pour les utilisateurs OAuth
           })
           .select()
           .single();
@@ -74,30 +75,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.error('Erreur lors de la création du profil utilisateur:', insertError);
           return null;
         }
-        userData = newUser;
+        return transformUserData(newUser);
       }
 
       if (!userData) return null;
 
-      // Vérifier si l'abonnement est actif
-      const hasActiveSubscription = userData.subscription_status === 'active' && 
-        (userData.subscription_expires_at === null || new Date(userData.subscription_expires_at) > new Date());
-
-      return {
-        id: userData.id,
-        email: userData.email || supabaseUser.email || '',
-        username: userData.username,
-        nom: userData.nom,
-        role: userData.role,
-        subscription_status: userData.subscription_status || 'free',
-        subscription_type: userData.subscription_type || 'none',
-        subscription_expires_at: userData.subscription_expires_at,
-        hasActiveSubscription
-      };
+      return transformUserData(userData);
     } catch (error) {
       console.error('Erreur lors de la transformation de l\'utilisateur:', error);
       return null;
     }
+  };
+
+  // Fonction pour transformer les données utilisateur en UserData
+  const transformUserData = (userData: any): UserData => {
+    // Vérifier si l'abonnement est actif
+    const hasActiveSubscription = userData.subscription_status === 'active' && 
+      (userData.subscription_expires_at === null || new Date(userData.subscription_expires_at) > new Date());
+
+    return {
+      id: userData.id,
+      email: userData.email || '',
+      username: userData.username,
+      nom: userData.nom,
+      role: userData.role,
+      subscription_status: userData.subscription_status || 'free',
+      subscription_type: userData.subscription_type || 'none',
+      subscription_expires_at: userData.subscription_expires_at,
+      hasActiveSubscription
+    };
   };
 
   // Vérification de la session au démarrage
@@ -236,7 +242,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           data: {
             nom: userData.nom,
             username: userData.username || email.split('@')[0]
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
 
