@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -110,6 +109,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const getSession = async () => {
       try {
+        // Vérifier d'abord si il y a une session Google locale
+        const localUser = localStorage.getItem('afrikassa_user');
+        const authMethod = localStorage.getItem('afrikassa_auth_method');
+        
+        if (localUser && authMethod === 'google') {
+          const userData = JSON.parse(localUser);
+          setUser(userData);
+          setLoading(false);
+          return;
+        }
+
+        // Sinon, vérifier la session Supabase
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
@@ -125,13 +136,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     getSession();
 
-    // Écouter les changements d'authentification
+    // Écouter les changements d'authentification Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const userData = await transformUser(session.user);
         setUser(userData);
       } else {
-        setUser(null);
+        // Vérifier si c'est une déconnexion et nettoyer le localStorage
+        if (event === 'SIGNED_OUT') {
+          localStorage.removeItem('afrikassa_user');
+          localStorage.removeItem('afrikassa_auth_method');
+          setUser(null);
+        }
       }
       setLoading(false);
     });
@@ -139,31 +155,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Connexion avec Google
+  // Connexion avec Google (maintenant via le composant GoogleSignInButton)
   const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-
-      if (error) {
-        toast({
-          title: "Erreur de connexion",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Erreur lors de la connexion Google:', error);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la connexion",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Utilisez le bouton Google",
+      description: "Veuillez utiliser le bouton Google Sign-In pour vous connecter",
+    });
   };
 
   // Connexion avec email/mot de passe
@@ -281,7 +278,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Déconnexion
   const signOut = async () => {
     try {
+      // Déconnexion Supabase
       await supabase.auth.signOut();
+      
+      // Nettoyer le localStorage pour Google
+      localStorage.removeItem('afrikassa_user');
+      localStorage.removeItem('afrikassa_auth_method');
+      
       setUser(null);
       toast({
         title: "Déconnexion réussie",

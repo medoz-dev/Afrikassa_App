@@ -1,12 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff, User, Mail } from 'lucide-react';
+import { Package, Eye, EyeOff, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,7 +15,8 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signInWithEmail, signInWithGoogle, user, isAdmin } = useAuth();
+  const { signInWithEmail, user, isAdmin } = useAuth();
+  const { handleGoogleSignIn, handleGoogleError } = useGoogleAuth();
 
   // Redirection automatique si déjà connecté
   useEffect(() => {
@@ -38,17 +40,6 @@ const Login: React.FC = () => {
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error('Erreur de connexion Google:', error);
     } finally {
       setIsLoading(false);
     }
@@ -93,14 +84,13 @@ const Login: React.FC = () => {
           <CardContent className="p-8">
             {/* Connexion Google */}
             <div className="space-y-4 mb-6">
-              <Button 
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="w-full h-12 bg-red-600 hover:bg-red-700 text-white"
-              >
-                <Mail className="mr-2 h-5 w-5" />
-                Continuer avec Google
-              </Button>
+              <GoogleSignInButton
+                onSuccess={handleGoogleSignIn}
+                onError={handleGoogleError}
+                text="signin_with"
+                size="large"
+                theme="outline"
+              />
             </div>
 
             <div className="relative">
