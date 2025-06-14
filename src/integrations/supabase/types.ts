@@ -318,6 +318,87 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          paid_at: string | null
+          payment_method: string
+          payment_status: string | null
+          plan_id: string | null
+          transaction_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_method: string
+          payment_status?: string | null
+          plan_id?: string | null
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_method?: string
+          payment_status?: string | null
+          plan_id?: string | null
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          duration_days: number
+          features: Json
+          id: string
+          name: string
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_days: number
+          features?: Json
+          id?: string
+          name: string
+          price: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_days?: number
+          features?: Json
+          id?: string
+          name?: string
+          price?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -427,6 +508,9 @@ export type Database = {
           password_hash: string
           role: string
           statut: string
+          subscription_expires_at: string | null
+          subscription_status: string | null
+          subscription_type: string | null
           updated_at: string
           username: string
         }
@@ -446,6 +530,9 @@ export type Database = {
           password_hash: string
           role?: string
           statut?: string
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
+          subscription_type?: string | null
           updated_at?: string
           username: string
         }
@@ -465,6 +552,9 @@ export type Database = {
           password_hash?: string
           role?: string
           statut?: string
+          subscription_expires_at?: string | null
+          subscription_status?: string | null
+          subscription_type?: string | null
           updated_at?: string
           username?: string
         }
@@ -533,9 +623,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      has_active_subscription: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       hash_password: {
         Args: { password: string }
         Returns: string
+      }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       logout_session: {
         Args: { p_session_token: string }

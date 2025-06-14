@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
@@ -7,204 +8,149 @@ import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
 import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle, MessageCircle } from 'lucide-react';
+import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle, MessageCircle, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import SubscriptionGuard from '@/components/subscription/SubscriptionGuard';
+import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { isCreator } = useAuth();
+  const { user, isAdmin, hasActiveSubscription } = useAuth();
   const { 
     stockTotal, 
     arrivageTotal, 
     venteTheorique 
   } = useAppContext();
 
-  // Vérifier l'état du client à chaque chargement du dashboard (sauf pour le créateur)
+  // Redirection si pas connecté
   useEffect(() => {
-    // Ignorer les vérifications pour le créateur
-    if (isCreator) {
-      return;
-    }
-
-    const currentUser = localStorage.getItem('current_user');
-    if (!currentUser) {
+    if (!user) {
       navigate('/login');
-      return;
+    }
+  }, [user, navigate]);
+
+  const handleContactSupport = () => {
+    const message = `Bonjour, je souhaite souscrire à un abonnement AfriKassa.%0A%0ANom: ${user?.nom || 'Non renseigné'}%0AEmail: ${user?.email || 'Non renseigné'}%0A%0AMerci de m'aider à activer mon abonnement.`;
+    window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
+  };
+
+  // Calculer les informations d'abonnement
+  const getSubscriptionInfo = () => {
+    if (isAdmin) {
+      return {
+        status: 'admin',
+        message: 'Accès Administrateur - Illimité',
+        icon: Crown,
+        color: 'text-purple-600',
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-200'
+      };
     }
 
-    const user = JSON.parse(currentUser);
-    const clientsStockes = localStorage.getItem('clients_list');
-    
-    if (clientsStockes) {
-      const clients = JSON.parse(clientsStockes);
-      const clientActuel = clients.find((client: any) => client.id === user.id);
-      
-      if (!clientActuel) {
-        // Client supprimé
-        localStorage.removeItem('current_user');
-        toast({
-          title: "Compte supprimé",
-          description: "Votre compte a été supprimé par l'administrateur.",
-          variant: "destructive"
-        });
-        navigate('/login');
-        return;
-      }
-
-      if (clientActuel.statut !== 'actif') {
-        // Client désactivé
-        localStorage.removeItem('current_user');
-        toast({
-          title: "Compte désactivé",
-          description: "Votre compte a été désactivé par l'administrateur.",
-          variant: "destructive"
-        });
-        navigate('/login');
-        return;
-      }
-
-      // Vérifier l'expiration
-      if (clientActuel.dateExpiration) {
-        const dateExpiration = new Date(clientActuel.dateExpiration);
-        const maintenant = new Date();
-        
-        if (maintenant > dateExpiration) {
-          // Abonnement expiré
-          localStorage.removeItem('current_user');
-          toast({
-            title: "Abonnement expiré",
-            description: "Votre abonnement a expiré. Contactez l'administrateur.",
-            variant: "destructive"
-          });
-          navigate('/login');
-          return;
-        }
-      }
-
-      // Mettre à jour les données utilisateur si nécessaire
-      if (JSON.stringify(user) !== JSON.stringify(clientActuel)) {
-        localStorage.setItem('current_user', JSON.stringify(clientActuel));
-      }
+    if (hasActiveSubscription) {
+      return {
+        status: 'active',
+        message: 'Abonnement Actif - Accès complet',
+        icon: CheckCircle,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200'
+      };
     }
-  }, [navigate, isCreator]);
-
-  // Calculer les jours restants d'abonnement (seulement pour les clients)
-  const getSubscriptionStatus = () => {
-    // Ne pas afficher de statut d'abonnement pour le créateur
-    if (isCreator) {
-      return null;
-    }
-
-    const currentUser = localStorage.getItem('current_user');
-    if (!currentUser) return null;
-
-    const user = JSON.parse(currentUser);
-    if (!user.dateExpiration) return null;
-
-    const dateExpiration = new Date(user.dateExpiration);
-    const maintenant = new Date();
-    const joursRestants = Math.ceil((dateExpiration.getTime() - maintenant.getTime()) / (1000 * 60 * 60 * 24));
 
     return {
-      dateExpiration: dateExpiration.toLocaleDateString('fr-FR'),
-      joursRestants,
-      isExpiringSoon: joursRestants <= 7 && joursRestants > 0,
-      isExpired: joursRestants <= 0
+      status: 'free',
+      message: 'Compte Gratuit - Abonnement requis pour les outils',
+      icon: AlertTriangle,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200'
     };
   };
 
-  const subscriptionStatus = getSubscriptionStatus();
+  const subscriptionInfo = getSubscriptionInfo();
+  const StatusIcon = subscriptionInfo.icon;
 
-  const handleReactivateSubscription = () => {
-    const currentUser = localStorage.getItem('current_user');
-    if (!currentUser) return;
-
-    const user = JSON.parse(currentUser);
-    const message = `Bonjour, je souhaite réactiver mon abonnement AfriKassa.%0A%0ANom: ${user.nom}%0AUtilisateur: ${user.username}%0A%0AMerci de m'aider à renouveler mon accès.`;
-    window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
-  };
+  if (!user) {
+    return null; // Loading ou redirection
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
-          {isCreator ? 'Tableau de Bord - Mode Créateur' : 'Tableau de Bord'}
+          {isAdmin ? 'Tableau de Bord - Administrateur' : 'Tableau de Bord'}
         </h1>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button 
-              className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
-            >
-              <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
-              <Brain className="mr-2 h-5 w-5 animate-pulse" />
-              Calcul Intelligent
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px]">
-            <DialogHeader>
-              <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-                Analyse Automatique par Intelligence Artificielle
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
-              </DialogDescription>
-            </DialogHeader>
-            <AICalculation />
-          </DialogContent>
-        </Dialog>
+        <SubscriptionGuard feature="l'analyse par IA">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
+              >
+                <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
+                <Brain className="mr-2 h-5 w-5 animate-pulse" />
+                Calcul Intelligent
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[800px]">
+              <DialogHeader>
+                <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                  Analyse Automatique par Intelligence Artificielle
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
+                </DialogDescription>
+              </DialogHeader>
+              <AICalculation />
+            </DialogContent>
+          </Dialog>
+        </SubscriptionGuard>
       </div>
 
-      {/* Affichage du statut d'abonnement seulement pour les clients */}
-      {subscriptionStatus && !isCreator && (
-        <Alert className={`${subscriptionStatus.isExpiringSoon ? 'border-orange-500 bg-orange-50' : 'border-green-500 bg-green-50'}`}>
-          <div className="flex items-center gap-2">
-            {subscriptionStatus.isExpiringSoon ? (
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-            ) : (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            )}
-            <div className="flex-1">
-              <AlertDescription className={`${subscriptionStatus.isExpiringSoon ? 'text-orange-800' : 'text-green-800'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <strong>Statut d'abonnement :</strong> 
-                    {subscriptionStatus.isExpiringSoon 
-                      ? ` ⚠️ Expire dans ${subscriptionStatus.joursRestants} jour${subscriptionStatus.joursRestants > 1 ? 's' : ''} (${subscriptionStatus.dateExpiration})`
-                      : ` ✅ Actif jusqu'au ${subscriptionStatus.dateExpiration} (${subscriptionStatus.joursRestants} jours restants)`
-                    }
-                  </div>
-                  {subscriptionStatus.isExpiringSoon && (
+      {/* Statut d'abonnement */}
+      <Alert className={`${subscriptionInfo.bgColor} ${subscriptionInfo.borderColor}`}>
+        <div className="flex items-center gap-2">
+          <StatusIcon className={`h-4 w-4 ${subscriptionInfo.color}`} />
+          <div className="flex-1">
+            <AlertDescription className={subscriptionInfo.color}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Statut:</strong> {subscriptionInfo.message}
+                </div>
+                {!hasActiveSubscription && !isAdmin && (
+                  <div className="flex gap-2">
+                    <Link to="/pricing">
+                      <Button 
+                        size="sm" 
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                      >
+                        <Crown className="h-4 w-4 mr-1" />
+                        S'abonner
+                      </Button>
+                    </Link>
                     <Button 
                       size="sm" 
-                      onClick={handleReactivateSubscription}
-                      className="ml-4 bg-orange-600 hover:bg-orange-700 text-white"
+                      variant="outline"
+                      onClick={handleContactSupport}
+                      className="border-orange-600 text-orange-600 hover:bg-orange-50"
                     >
                       <MessageCircle className="h-4 w-4 mr-1" />
-                      Réactiver
+                      Support
                     </Button>
-                  )}
-                </div>
-              </AlertDescription>
-            </div>
+                  </div>
+                )}
+              </div>
+            </AlertDescription>
           </div>
-        </Alert>
-      )}
+        </div>
+      </Alert>
 
-      {/* Message spécial pour le créateur */}
-      {isCreator && (
-        <Alert className="border-blue-500 bg-blue-50">
-          <CheckCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
-            <strong>Mode Créateur Actif</strong> - Accès illimité à toutes les fonctionnalités
-          </AlertDescription>
-        </Alert>
-      )}
-
+      {/* Cartes de statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -237,20 +183,30 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* Onglets avec protection d'abonnement */}
       <Tabs defaultValue="stock" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="stock">Stock Restant</TabsTrigger>
           <TabsTrigger value="arrivage">Arrivage</TabsTrigger>
           <TabsTrigger value="calculs">Calculs Généraux</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="stock">
-          <StockTable />
+          <SubscriptionGuard feature="la gestion du stock">
+            <StockTable />
+          </SubscriptionGuard>
         </TabsContent>
+        
         <TabsContent value="arrivage">
-          <ArrivageTable />
+          <SubscriptionGuard feature="la gestion des arrivages">
+            <ArrivageTable />
+          </SubscriptionGuard>
         </TabsContent>
+        
         <TabsContent value="calculs">
-          <CalculGeneral />
+          <SubscriptionGuard feature="les calculs généraux">
+            <CalculGeneral />
+          </SubscriptionGuard>
         </TabsContent>
       </Tabs>
     </div>

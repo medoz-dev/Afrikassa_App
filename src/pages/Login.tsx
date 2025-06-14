@@ -5,50 +5,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff, User } from 'lucide-react';
+import { Package, Eye, EyeOff, User, Mail } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const Login: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn, user, isCreator } = useAuth();
+  const { signInWithEmail, signInWithGoogle, user, isAdmin } = useAuth();
 
   // Redirection automatique si déjà connecté
   useEffect(() => {
     if (user) {
-      if (isCreator) {
-        navigate('/creator-panel');
+      if (isAdmin) {
+        navigate('/dashboard');
       } else {
         navigate('/dashboard');
       }
     }
-  }, [user, isCreator, navigate]);
+  }, [user, isAdmin, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Vérification pour le créateur
-      if (password === 'meki') {
-        toast({
-          title: "Connexion créateur réussie",
-          description: "Bienvenue dans le panneau créateur !",
-        });
-        navigate('/creator-panel');
-        return;
-      }
-
-      const success = await signIn(username, password);
-      
+      const success = await signInWithEmail(email, password);
       if (success) {
         // La redirection sera gérée par l'effet useEffect ci-dessus
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Erreur de connexion Google:', error);
     } finally {
       setIsLoading(false);
     }
@@ -91,17 +91,39 @@ const Login: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Connexion Google */}
+            <div className="space-y-4 mb-6">
+              <Button 
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="w-full h-12 bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Mail className="mr-2 h-5 w-5" />
+                Continuer avec Google
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Ou</span>
+              </div>
+            </div>
+
+            {/* Connexion Email */}
+            <form onSubmit={handleEmailSignIn} className="space-y-6 mt-6">
               <div className="space-y-2">
-                <label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  Nom d'utilisateur
+                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email
                 </label>
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Entrez votre nom d'utilisateur"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="Entrez votre email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="h-12"
                 />
@@ -129,6 +151,9 @@ const Login: React.FC = () => {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500">
+                  Admin: utilisez le mot de passe spécial pour accéder au panneau administrateur
+                </p>
               </div>
 
               <Button 
@@ -148,12 +173,12 @@ const Login: React.FC = () => {
                 <div className="space-y-3">
                   <Link to="/register">
                     <Button variant="outline" className="w-full">
-                      S'inscrire avec un code d'activation
+                      Créer un compte gratuit
                     </Button>
                   </Link>
                   <Link to="/pricing">
                     <Button variant="outline" className="w-full">
-                      Acheter l'application
+                      Voir les plans d'abonnement
                     </Button>
                   </Link>
                   <Button 
@@ -171,10 +196,10 @@ const Login: React.FC = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Pour obtenir un code d'activation, contactez-nous via WhatsApp
+            Inscription gratuite - Abonnement requis pour utiliser les outils
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            +229 61 17 00 17
+            Support: +229 61 17 00 17
           </p>
         </div>
       </div>

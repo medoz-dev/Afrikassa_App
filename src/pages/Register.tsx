@@ -1,118 +1,73 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff, UserPlus, Ticket } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Package, Eye, EyeOff, UserPlus, Mail } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const Register: React.FC = () => {
-  const [formData, setFormData] = useState({
-    activationCode: '',
-    username: '',
-    nom: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nom, setNom] = useState('');
+  const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp, signInWithGoogle, user } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Redirection automatique si déjà connecté
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        title: "Erreur",
+        description: "Les mots de passe ne correspondent pas",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Erreur",
+        description: "Le mot de passe doit contenir au moins 6 caractères",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Vérifications de base
-      if (!formData.activationCode || !formData.username || !formData.nom || !formData.email || !formData.password) {
-        toast({
-          title: "Erreur",
-          description: "Veuillez remplir tous les champs",
-          variant: "destructive"
-        });
-        return;
+      const success = await signUp(email, password, { nom, username });
+      if (success) {
+        navigate('/login');
       }
-
-      if (formData.password !== formData.confirmPassword) {
-        toast({
-          title: "Erreur",
-          description: "Les mots de passe ne correspondent pas",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (formData.password.length < 6) {
-        toast({
-          title: "Erreur",
-          description: "Le mot de passe doit contenir au moins 6 caractères",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Tentative d\'activation avec le code:', formData.activationCode);
-
-      // Utiliser directement la fonction RPC qui gère toutes les validations
-      const { data, error } = await supabase
-        .rpc('use_activation_code', {
-          p_code: formData.activationCode.toUpperCase(),
-          p_username: formData.username,
-          p_nom: formData.nom,
-          p_email: formData.email,
-          p_password: formData.password
-        });
-
-      if (error) {
-        console.error('Erreur lors de l\'activation:', error);
-        toast({
-          title: "Erreur",
-          description: "Erreur lors de l'activation du compte: " + error.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Résultat de l\'activation:', data);
-
-      if (!data || data.length === 0) {
-        toast({
-          title: "Erreur",
-          description: "Aucune réponse reçue du serveur",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const result = data[0];
-      if (!result.success) {
-        toast({
-          title: "Erreur",
-          description: result.message || "Erreur lors de l'activation",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({
-        title: "Compte créé avec succès !",
-        description: "Vous pouvez maintenant vous connecter avec vos identifiants",
-      });
-
-      // Rediriger vers la page de connexion
-      navigate('/login');
-
     } catch (error) {
-      console.error('Erreur lors de l\'inscription:', error);
-      toast({
-        title: "Erreur",
-        description: "Une erreur inattendue est survenue lors de l'inscription",
-        variant: "destructive"
-      });
+      console.error('Erreur d\'inscription:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Erreur d\'inscription Google:', error);
     } finally {
       setIsLoading(false);
     }
@@ -142,47 +97,52 @@ const Register: React.FC = () => {
         </div>
       </div>
 
-      {/* Registration Form */}
+      {/* Register Form */}
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-2xl">
-          <CardHeader className="text-center pb-8 bg-gradient-to-r from-primary to-primary/80 text-white rounded-t-lg">
+          <CardHeader className="text-center pb-8 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-t-lg">
             <CardTitle className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
               <UserPlus className="h-6 w-6" />
-              Créer votre compte
+              Inscription AfriKassa
             </CardTitle>
             <CardDescription className="text-white/90">
-              Utilisez votre code d'activation pour commencer
+              Créez votre compte gratuit
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="activationCode" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Ticket className="h-4 w-4" />
-                  Code d'activation
-                </label>
-                <Input
-                  id="activationCode"
-                  type="text"
-                  placeholder="Entrez votre code d'activation"
-                  value={formData.activationCode}
-                  onChange={(e) => setFormData({ ...formData, activationCode: e.target.value.toUpperCase() })}
-                  required
-                  className="h-12 uppercase"
-                  maxLength={8}
-                />
-              </div>
+            {/* Inscription Google */}
+            <div className="space-y-4 mb-6">
+              <Button 
+                onClick={handleGoogleSignUp}
+                disabled={isLoading}
+                className="w-full h-12 bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Mail className="mr-2 h-5 w-5" />
+                S'inscrire avec Google
+              </Button>
+            </div>
 
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Ou</span>
+              </div>
+            </div>
+
+            {/* Inscription Email */}
+            <form onSubmit={handleEmailSignUp} className="space-y-6 mt-6">
               <div className="space-y-2">
                 <label htmlFor="nom" className="text-sm font-medium text-gray-700">
-                  Nom complet
+                  Nom complet *
                 </label>
                 <Input
                   id="nom"
                   type="text"
-                  placeholder="Votre nom complet"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  placeholder="Entrez votre nom complet"
+                  value={nom}
+                  onChange={(e) => setNom(e.target.value)}
                   required
                   className="h-12"
                 />
@@ -190,29 +150,28 @@ const Register: React.FC = () => {
 
               <div className="space-y-2">
                 <label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  Nom d'utilisateur
+                  Nom d'utilisateur (optionnel)
                 </label>
                 <Input
                   id="username"
                   type="text"
                   placeholder="Nom d'utilisateur unique"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="h-12"
                 />
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email
+                  Email *
                 </label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="votre@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Entrez votre email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="h-12"
                 />
@@ -220,15 +179,15 @@ const Register: React.FC = () => {
 
               <div className="space-y-2">
                 <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Mot de passe
+                  Mot de passe *
                 </label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Créez un mot de passe"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Mot de passe (min. 6 caractères)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                     className="h-12 pr-10"
                   />
@@ -244,15 +203,15 @@ const Register: React.FC = () => {
 
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirmer le mot de passe
+                  Confirmer le mot de passe *
                 </label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirmez votre mot de passe"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     className="h-12 pr-10"
                   />
@@ -268,22 +227,27 @@ const Register: React.FC = () => {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 text-lg"
+                className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
                 disabled={isLoading}
               >
-                {isLoading ? "Création du compte..." : "Créer mon compte"}
+                {isLoading ? "Création du compte..." : "Créer mon compte gratuit"}
               </Button>
             </form>
 
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="text-center space-y-4">
                 <p className="text-sm text-gray-600">
-                  Vous n'avez pas de code d'activation ?
+                  Vous avez déjà un compte ?
                 </p>
                 <div className="space-y-3">
+                  <Link to="/login">
+                    <Button variant="outline" className="w-full">
+                      Se connecter
+                    </Button>
+                  </Link>
                   <Link to="/pricing">
                     <Button variant="outline" className="w-full">
-                      Acheter un code d'activation
+                      Voir les tarifs
                     </Button>
                   </Link>
                   <Button 
@@ -301,10 +265,10 @@ const Register: React.FC = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Déjà un compte ? <Link to="/login" className="text-primary hover:underline">Se connecter</Link>
+            🎉 Inscription 100% gratuite - Choisissez ensuite votre abonnement
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Support : +229 61 17 00 17
+            Support: +229 61 17 00 17
           </p>
         </div>
       </div>
