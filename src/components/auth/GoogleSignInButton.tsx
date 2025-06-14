@@ -26,21 +26,9 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const CLIENT_ID = "379612386624-3b1cf75no85m105cnd64smrbme1ulv9n.apps.googleusercontent.com";
   const LOGIN_URI = "https://preview--afri-kassa-boissons25-61.lovable.app";
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInitialized = useRef(false);
+  const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
-    // Éviter la double initialisation
-    if (isInitialized.current) return;
-    
-    // Charger le script Google GSI s'il n'est pas déjà chargé
-    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    }
-
     // Fonction globale pour gérer la réponse Google
     window.handleCredentialResponse = (response: any) => {
       console.log('Google credential response:', response);
@@ -51,10 +39,48 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       }
     };
 
+    const loadGoogleScript = () => {
+      return new Promise((resolve, reject) => {
+        // Vérifier si le script existe déjà
+        const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+        
+        if (existingScript) {
+          if (window.google) {
+            resolve(true);
+          } else {
+            existingScript.addEventListener('load', () => resolve(true));
+            existingScript.addEventListener('error', () => reject(false));
+          }
+          return;
+        }
+
+        // Créer un nouveau script
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        
+        script.onload = () => {
+          console.log('Google GSI script loaded successfully');
+          scriptLoadedRef.current = true;
+          resolve(true);
+        };
+        
+        script.onerror = () => {
+          console.error('Failed to load Google GSI script');
+          reject(false);
+        };
+        
+        document.head.appendChild(script);
+      });
+    };
+
     const initializeGoogleButton = () => {
       if (!containerRef.current) return;
 
-      // Nettoyer le contenu existant du conteneur
+      console.log('Initializing Google Sign-In button');
+      
+      // Nettoyer le contenu existant
       containerRef.current.innerHTML = '';
 
       // Créer l'élément g_id_onload
@@ -79,43 +105,37 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       containerRef.current.appendChild(onloadDiv);
       containerRef.current.appendChild(signinDiv);
 
-      isInitialized.current = true;
-      console.log('Google Sign-In button initialized');
+      console.log('Google Sign-In button elements created');
     };
 
-    // Initialiser immédiatement si le script est déjà chargé
-    if (window.google) {
-      initializeGoogleButton();
-    } else {
-      // Sinon, attendre que le script se charge
-      const checkGoogleLoaded = setInterval(() => {
-        if (window.google) {
-          clearInterval(checkGoogleLoaded);
+    // Charger le script et initialiser le bouton
+    loadGoogleScript()
+      .then(() => {
+        // Attendre un peu que Google soit complètement initialisé
+        setTimeout(() => {
           initializeGoogleButton();
+        }, 100);
+      })
+      .catch((error) => {
+        console.error('Error loading Google script:', error);
+        if (onError) {
+          onError({ message: 'Failed to load Google Sign-In' });
         }
-      }, 100);
-
-      // Timeout de sécurité
-      setTimeout(() => {
-        clearInterval(checkGoogleLoaded);
-        if (!isInitialized.current) {
-          console.warn('Google Sign-In script failed to load');
-        }
-      }, 10000);
-    }
+      });
 
     return () => {
-      // Nettoyer uniquement si c'est nécessaire
+      // Nettoyer la fonction globale
       if (window.handleCredentialResponse) {
         delete window.handleCredentialResponse;
       }
-      isInitialized.current = false;
     };
-  }, [onSuccess, onError, text, size, theme, CLIENT_ID, LOGIN_URI]);
+  }, [onSuccess, onError, text, size, theme]);
 
   return (
     <div className="w-full">
-      <div ref={containerRef} className="w-full flex justify-center min-h-[48px]"></div>
+      <div ref={containerRef} className="w-full flex justify-center min-h-[48px]">
+        {/* Le bouton Google sera injecté ici */}
+      </div>
     </div>
   );
 };
