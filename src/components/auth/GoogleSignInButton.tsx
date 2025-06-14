@@ -12,7 +12,7 @@ interface GoogleSignInButtonProps {
 declare global {
   interface Window {
     google: any;
-    handleGoogleSignIn: (response: any) => void;
+    handleCredentialResponse: (response: any) => void;
   }
 }
 
@@ -24,6 +24,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   theme = 'outline'
 }) => {
   const CLIENT_ID = "379612386624-3b1cf75no85m105cnd64smrbme1ulv9n.apps.googleusercontent.com";
+  const LOGIN_URI = "https://preview--afri-kassa-boissons25-61.lovable.app";
 
   useEffect(() => {
     // Charger le script Google GSI s'il n'est pas déjà chargé
@@ -36,7 +37,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
 
     // Fonction globale pour gérer la réponse Google
-    window.handleGoogleSignIn = (response: any) => {
+    window.handleCredentialResponse = (response: any) => {
       if (response.credential) {
         onSuccess(response.credential);
       } else if (onError) {
@@ -44,48 +45,50 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       }
     };
 
-    // Initialiser Google Sign-In une fois le script chargé
-    const initializeGoogleSignIn = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: window.handleGoogleSignIn,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
+    // Nettoyer les éléments existants
+    const existingOnload = document.getElementById('g_id_onload');
+    const existingSignin = document.querySelector('.g_id_signin');
+    if (existingOnload) existingOnload.remove();
+    if (existingSignin) existingSignin.remove();
 
-        // Rendre le bouton
-        window.google.accounts.id.renderButton(
-          document.getElementById('google-signin-button'),
-          {
-            type: 'standard',
-            size: size,
-            theme: theme,
-            text: text,
-            shape: 'rectangular',
-            logo_alignment: 'left'
-          }
-        );
-      } else {
-        // Réessayer après un délai si Google n'est pas encore chargé
-        setTimeout(initializeGoogleSignIn, 100);
-      }
-    };
+    // Créer l'élément g_id_onload
+    const onloadDiv = document.createElement('div');
+    onloadDiv.id = 'g_id_onload';
+    onloadDiv.setAttribute('data-client_id', CLIENT_ID);
+    onloadDiv.setAttribute('data-login_uri', LOGIN_URI);
+    onloadDiv.setAttribute('data-auto_prompt', 'false');
+    onloadDiv.setAttribute('data-callback', 'handleCredentialResponse');
+    
+    // Créer l'élément g_id_signin
+    const signinDiv = document.createElement('div');
+    signinDiv.className = 'g_id_signin';
+    signinDiv.setAttribute('data-type', 'standard');
+    signinDiv.setAttribute('data-size', size);
+    signinDiv.setAttribute('data-theme', theme);
+    signinDiv.setAttribute('data-text', text);
+    signinDiv.setAttribute('data-shape', 'rectangular');
+    signinDiv.setAttribute('data-logo_alignment', 'left');
 
-    // Délai pour s'assurer que le script est chargé
-    setTimeout(initializeGoogleSignIn, 500);
+    // Ajouter les éléments au conteneur
+    const container = document.getElementById('google-signin-container');
+    if (container) {
+      container.appendChild(onloadDiv);
+      container.appendChild(signinDiv);
+    }
 
     return () => {
-      // Nettoyer la fonction globale
-      if (window.handleGoogleSignIn) {
-        delete window.handleGoogleSignIn;
+      // Nettoyer la fonction globale et les éléments
+      if (window.handleCredentialResponse) {
+        delete window.handleCredentialResponse;
       }
+      if (onloadDiv.parentNode) onloadDiv.remove();
+      if (signinDiv.parentNode) signinDiv.remove();
     };
   }, [onSuccess, onError, text, size, theme]);
 
   return (
     <div className="w-full">
-      <div id="google-signin-button" className="w-full flex justify-center"></div>
+      <div id="google-signin-container" className="w-full flex justify-center"></div>
     </div>
   );
 };
