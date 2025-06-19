@@ -24,8 +24,8 @@ const Header: React.FC = () => {
           </Link>
           
           {isInApp && (
-            <nav className="flex flex-1 items-center justify-between">
-              {/* Liens de navigation */}
+            <nav className="flex items-center justify-end">
+              {/* Liens de navigation déplacés à droite */}
               <div className="flex items-center space-x-1 md:space-x-4">
                 <NavLink to="/dashboard" icon={<Home size={20} />} label="Accueil" />
                 <NavLink to="/stock" icon={<Clipboard size={20} />} label="Stock" />
