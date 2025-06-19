@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import VideoModal from '@/components/demo/VideoModal';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   BarChart3, 
   Package, 
@@ -18,6 +19,13 @@ import {
 
 const Landing: React.FC = () => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const { signInAsGuest } = useAuth();
+
+  const handleAccessApp = () => {
+    signInAsGuest();
+    navigate('/dashboard');
+  };
 
   const features = [
     {
@@ -74,9 +82,7 @@ const Landing: React.FC = () => {
             <Package className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold text-primary">AfriKassa</span>
           </div>
-          <Link to="/login">
-            <Button>Accéder à l'Application</Button>
-          </Link>
+          <Button onClick={handleAccessApp}>Accéder à l'Application</Button>
         </div>
       </header>
 
@@ -94,11 +100,9 @@ const Landing: React.FC = () => {
               et générez des rapports détaillés en toute simplicité.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/login">
-                <Button size="lg" className="text-lg px-8 py-3">
-                  Commencer Maintenant
-                </Button>
-              </Link>
+              <Button size="lg" className="text-lg px-8 py-3" onClick={handleAccessApp}>
+                Commencer Maintenant
+              </Button>
               <Button 
                 variant="outline" 
                 size="lg" 
@@ -256,11 +260,9 @@ const Landing: React.FC = () => {
             Rejoignez les centaines d'entrepreneurs qui font déjà confiance à AfriKassa 
             pour gérer leur établissement avec succès.
           </p>
-          <Link to="/login">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-              Commencer Maintenant
-            </Button>
-          </Link>
+          <Button size="lg" variant="secondary" className="text-lg px-8 py-3" onClick={handleAccessApp}>
+            Commencer Maintenant
+          </Button>
         </div>
       </section>
 

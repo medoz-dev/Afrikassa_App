@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -22,6 +23,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, userData: { nom: string; username?: string }) => Promise<boolean>;
   signOut: () => Promise<void>;
+  signInAsGuest: () => void;
   isAdmin: boolean;
   hasActiveSubscription: boolean;
 }
@@ -64,7 +66,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             nom: supabaseUser.user_metadata?.nom || supabaseUser.user_metadata?.full_name || 'Utilisateur',
             username: supabaseUser.user_metadata?.username || supabaseUser.email?.split('@')[0] || 'user',
             role: 'client',
-            subscription_status: 'free',
+            subscription_status: 'active', // Accès gratuit complet
             password_hash: 'oauth_user' // Valeur par défaut pour les utilisateurs OAuth
           })
           .select()
@@ -88,9 +90,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Fonction pour transformer les données utilisateur en UserData
   const transformUserData = (userData: any): UserData => {
-    // Vérifier si l'abonnement est actif
-    const hasActiveSubscription = userData.subscription_status === 'active' && 
-      (userData.subscription_expires_at === null || new Date(userData.subscription_expires_at) > new Date());
+    // Accès gratuit complet pour tous les utilisateurs
+    const hasActiveSubscription = true;
 
     return {
       id: userData.id,
@@ -98,23 +99,49 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       username: userData.username,
       nom: userData.nom,
       role: userData.role,
-      subscription_status: userData.subscription_status || 'free',
-      subscription_type: userData.subscription_type || 'none',
+      subscription_status: 'active', // Force l'accès gratuit
+      subscription_type: userData.subscription_type || 'free_unlimited',
       subscription_expires_at: userData.subscription_expires_at,
       hasActiveSubscription
     };
+  };
+
+  // Fonction pour créer un utilisateur invité avec accès complet
+  const signInAsGuest = () => {
+    const guestUser: UserData = {
+      id: `guest_${Date.now()}`,
+      email: 'guest@afrikassa.app',
+      nom: 'Utilisateur Invité',
+      username: 'guest',
+      role: 'client',
+      subscription_status: 'active',
+      subscription_type: 'free_unlimited',
+      hasActiveSubscription: true
+    };
+
+    localStorage.setItem('afrikassa_user', JSON.stringify(guestUser));
+    localStorage.setItem('afrikassa_auth_method', 'guest');
+    setUser(guestUser);
+    
+    toast({
+      title: "Accès accordé",
+      description: "Bienvenue ! Vous avez maintenant accès à toute l'application.",
+    });
   };
 
   // Vérification de la session au démarrage
   useEffect(() => {
     const getSession = async () => {
       try {
-        // Vérifier d'abord si il y a une session Google locale
+        // Vérifier d'abord si il y a un utilisateur local (Google ou invité)
         const localUser = localStorage.getItem('afrikassa_user');
         const authMethod = localStorage.getItem('afrikassa_auth_method');
         
-        if (localUser && authMethod === 'google') {
+        if (localUser && (authMethod === 'google' || authMethod === 'guest')) {
           const userData = JSON.parse(localUser);
+          // S'assurer que l'utilisateur local a un accès complet
+          userData.hasActiveSubscription = true;
+          userData.subscription_status = 'active';
           setUser(userData);
           setLoading(false);
           return;
@@ -281,7 +308,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Déconnexion Supabase
       await supabase.auth.signOut();
       
-      // Nettoyer le localStorage pour Google
+      // Nettoyer le localStorage pour Google et invité
       localStorage.removeItem('afrikassa_user');
       localStorage.removeItem('afrikassa_auth_method');
       
@@ -310,6 +337,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signInWithEmail,
     signUp,
     signOut,
+    signInAsGuest,
     isAdmin,
     hasActiveSubscription,
   };

@@ -8,18 +8,15 @@ import StockTable from '@/components/stock/StockTable';
 import ArrivageTable from '@/components/stock/ArrivageTable';
 import CalculGeneral from '@/components/caisse/CalculGeneral';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package2, ArrowDownUp, Calculator, Brain, AlertTriangle, CheckCircle, MessageCircle, Crown } from 'lucide-react';
+import { Package2, ArrowDownUp, Calculator, Brain, CheckCircle, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AICalculation from '@/components/ai/AICalculation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import SubscriptionGuard from '@/components/subscription/SubscriptionGuard';
-import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { 
     stockTotal, 
     arrivageTotal, 
@@ -32,11 +29,6 @@ const Dashboard: React.FC = () => {
       navigate('/login');
     }
   }, [user, navigate]);
-
-  const handleContactSupport = () => {
-    const message = `Bonjour, je souhaite souscrire à un abonnement AfriKassa.%0A%0ANom: ${user?.nom || 'Non renseigné'}%0AEmail: ${user?.email || 'Non renseigné'}%0A%0AMerci de m'aider à activer mon abonnement.`;
-    window.open(`https://wa.me/22961170017?text=${message}`, '_blank');
-  };
 
   // Calculer les informations d'abonnement
   const getSubscriptionInfo = () => {
@@ -51,24 +43,14 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    if (hasActiveSubscription) {
-      return {
-        status: 'active',
-        message: 'Abonnement Actif - Accès complet',
-        icon: CheckCircle,
-        color: 'text-green-600',
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-200'
-      };
-    }
-
+    // Accès gratuit complet pour tous
     return {
-      status: 'free',
-      message: 'Compte Gratuit - Abonnement requis pour les outils',
-      icon: AlertTriangle,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200'
+      status: 'active',
+      message: 'Accès Gratuit Complet - Toutes les fonctionnalités disponibles',
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200'
     };
   };
 
@@ -86,30 +68,28 @@ const Dashboard: React.FC = () => {
           {isAdmin ? 'Tableau de Bord - Administrateur' : 'Tableau de Bord'}
         </h1>
         
-        <SubscriptionGuard feature="l'analyse par IA">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button 
-                className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
-              >
-                <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
-                <Brain className="mr-2 h-5 w-5 animate-pulse" />
-                Calcul Intelligent
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[800px]">
-              <DialogHeader>
-                <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-                  Analyse Automatique par Intelligence Artificielle
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
-                </DialogDescription>
-              </DialogHeader>
-              <AICalculation />
-            </DialogContent>
-          </Dialog>
-        </SubscriptionGuard>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button 
+              className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-indigo-500/25 group"
+            >
+              <div className="absolute inset-0 w-3 bg-white opacity-30 transform -skew-x-[20deg] group-hover:animate-pulse"></div>
+              <Brain className="mr-2 h-5 w-5 animate-pulse" />
+              Calcul Intelligent
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-gradient bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                Analyse Automatique par Intelligence Artificielle
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Téléchargez un fichier contenant vos calculs de boissons et laissez l'IA faire le travail pour vous.
+              </DialogDescription>
+            </DialogHeader>
+            <AICalculation />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Statut d'abonnement */}
@@ -118,33 +98,7 @@ const Dashboard: React.FC = () => {
           <StatusIcon className={`h-4 w-4 ${subscriptionInfo.color}`} />
           <div className="flex-1">
             <AlertDescription className={subscriptionInfo.color}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>Statut:</strong> {subscriptionInfo.message}
-                </div>
-                {!hasActiveSubscription && !isAdmin && (
-                  <div className="flex gap-2">
-                    <Link to="/pricing">
-                      <Button 
-                        size="sm" 
-                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        <Crown className="h-4 w-4 mr-1" />
-                        S'abonner
-                      </Button>
-                    </Link>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={handleContactSupport}
-                      className="border-orange-600 text-orange-600 hover:bg-orange-50"
-                    >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Support
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <strong>Statut:</strong> {subscriptionInfo.message}
             </AlertDescription>
           </div>
         </div>
@@ -183,7 +137,7 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Onglets avec protection d'abonnement */}
+      {/* Onglets - maintenant sans protection d'abonnement */}
       <Tabs defaultValue="stock" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="stock">Stock Restant</TabsTrigger>
@@ -192,21 +146,15 @@ const Dashboard: React.FC = () => {
         </TabsList>
         
         <TabsContent value="stock">
-          <SubscriptionGuard feature="la gestion du stock">
-            <StockTable />
-          </SubscriptionGuard>
+          <StockTable />
         </TabsContent>
         
         <TabsContent value="arrivage">
-          <SubscriptionGuard feature="la gestion des arrivages">
-            <ArrivageTable />
-          </SubscriptionGuard>
+          <ArrivageTable />
         </TabsContent>
         
         <TabsContent value="calculs">
-          <SubscriptionGuard feature="les calculs généraux">
-            <CalculGeneral />
-          </SubscriptionGuard>
+          <CalculGeneral />
         </TabsContent>
       </Tabs>
     </div>
