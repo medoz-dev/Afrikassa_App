@@ -11,6 +11,9 @@ const Header: React.FC = () => {
 
   const { user, signOut } = useAuth();
 
+  // Check if user is a guest user
+  const isGuestUser = user?.id?.startsWith('guest_');
+
   return (
     <header className="bg-primary text-white p-5 shadow-md">
       <div className="container mx-auto">
@@ -31,34 +34,37 @@ const Header: React.FC = () => {
                 <NavLink to="/rapports" icon={<BarChart3 size={20} />} label="Rapports" />
                 <NavLink to="/admin" icon={<Settings size={20} />} label="Admin" />
               </div>
-              {/* Affichage du profil connecté */}
-              <div className="flex items-center gap-2 ml-4">
-                {user ? (
-                  <>
-                    <span className="flex items-center gap-1 px-3 py-1 rounded bg-primary-foreground/10 text-white/90 text-sm">
-                      <UserIcon size={16} className="text-white/80" />
-                      <span>
-                        {user.nom || user.username || user.email}
+              
+              {/* Affichage du profil connecté - masqué pour les utilisateurs invités */}
+              {!isGuestUser && (
+                <div className="flex items-center gap-2 ml-4">
+                  {user ? (
+                    <>
+                      <span className="flex items-center gap-1 px-3 py-1 rounded bg-primary-foreground/10 text-white/90 text-sm">
+                        <UserIcon size={16} className="text-white/80" />
+                        <span>
+                          {user.nom || user.username || user.email}
+                        </span>
                       </span>
-                    </span>
-                    <Button 
-                      variant="ghost"
-                      className="border border-white/20 hover:bg-white hover:text-primary text-white px-2 py-1"
-                      onClick={signOut}
-                      title="Se déconnecter"
-                    >
-                      <LogOut size={18} className="mr-1" />
-                      Déconnexion
-                    </Button>
-                  </>
-                ) : (
-                  <Link to="/login">
-                    <Button variant="outline" className="text-white border-white bg-transparent hover:bg-white hover:text-primary">
-                      Se connecter
-                    </Button>
-                  </Link>
-                )}
-              </div>
+                      <Button 
+                        variant="ghost"
+                        className="border border-white/20 hover:bg-white hover:text-primary text-white px-2 py-1"
+                        onClick={signOut}
+                        title="Se déconnecter"
+                      >
+                        <LogOut size={18} className="mr-1" />
+                        Déconnexion
+                      </Button>
+                    </>
+                  ) : (
+                    <Link to="/login">
+                      <Button variant="outline" className="text-white border-white bg-transparent hover:bg-white hover:text-primary">
+                        Se connecter
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
             </nav>
           )}
         </div>
